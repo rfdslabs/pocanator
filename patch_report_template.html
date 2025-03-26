@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vulnerability Patch Analysis</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333;
+            --border-color: #e1e4e8;
+            --code-background: #f6f8fa;
+            --diff-add-color: #e6ffed;
+            --diff-add-text: #22863a;
+            --diff-remove-color: #ffeef0;
+            --diff-remove-text: #cb2431;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #2980b9;
+                --secondary-color: #3498db;
+                --danger-color: #e74c3c;
+                --success-color: #2ecc71;
+                --warning-color: #f39c12;
+                --background-color: #1a1a1a;
+                --card-background: #2d2d2d;
+                --text-color: #f0f0f0;
+                --border-color: #4a4a4a;
+                --code-background: #2c2c2c;
+                --diff-add-color: #133419;
+                --diff-add-text: #56d364;
+                --diff-remove-color: #3c1618;
+                --diff-remove-text: #ff7b72;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1, h2, h3, h4 {
+            margin-top: 0;
+            font-weight: 600;
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .metrics-card {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 2rem;
+        }
+
+        .metric-item {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            border-radius: 6px;
+            background-color: var(--card-background);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: gray;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 10px;
+            margin-right: 5px;
+        }
+
+        .badge-high {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .badge-medium {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .badge-low {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .badge-critical {
+            background-color: #7d0000;
+            color: white;
+        }
+
+        .severity-box {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .severity-Critical {
+            background-color: #7d0000;
+        }
+
+        .severity-High {
+            background-color: var(--danger-color);
+        }
+
+        .severity-Moderate, .severity-Medium {
+            background-color: var(--warning-color);
+        }
+
+        .severity-Low {
+            background-color: var(--success-color);
+        }
+
+        pre {
+            background-color: var(--code-background);
+            border-radius: 6px;
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid var(--border-color);
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 14px;
+        }
+
+        code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.9em;
+            padding: 0.2em 0.4em;
+            background-color: var(--code-background);
+            border-radius: 3px;
+        }
+
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .diff-table th {
+            text-align: left;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .diff-table td {
+            padding: 8px 10px;
+            border-top: 1px solid var(--border-color);
+            vertical-align: top;
+            line-height: 1.4;
+        }
+
+        .diff-table tr:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+
+        .diff-add {
+            background-color: var(--diff-add-color);
+            color: var(--diff-add-text);
+        }
+
+        .diff-remove {
+            background-color: var(--diff-remove-color);
+            color: var(--diff-remove-text);
+        }
+
+        .diff-line-num {
+            color: #8a8a8a;
+            text-align: right;
+            width: 40px;
+            user-select: none;
+            padding-right: 15px !important;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .diff-code {
+            white-space: pre-wrap;
+            word-break: break-all;
+            width: 100%;
+        }
+
+        .file-header {
+            background-color: var(--code-background);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            padding: 10px 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-path {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .file-stats {
+            font-size: 0.9em;
+            color: #8a8a8a;
+        }
+
+        .tab-container {
+            margin-top: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            margin-bottom: -1px;
+            background-color: transparent;
+        }
+
+        .tab.active {
+            border-color: var(--border-color);
+            border-radius: 4px 4px 0 0;
+            background-color: var(--card-background);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .timeline {
+            position: relative;
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+
+        .timeline::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            background-color: var(--border-color);
+            top: 0;
+            bottom: 0;
+            left: 20px;
+            margin-left: -2px;
+        }
+
+        .timeline-item {
+            padding: 10px 40px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: var(--secondary-color);
+            border: 4px solid var(--primary-color);
+            border-radius: 50%;
+            top: 15px;
+            left: 20px;
+            z-index: 1;
+            margin-left: -10px;
+        }
+
+        .timeline-content {
+            padding: 15px;
+            background-color: var(--card-background);
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .timeline-content h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: var(--secondary-color);
+        }
+
+        .summary-section {
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        table th, table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table th {
+            background-color: var(--code-background);
+            font-weight: 600;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: #8a8a8a;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .metrics-card {
+                flex-direction: column;
+            }
+            .metric-item {
+                min-width: unset;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Vulnerability Patch Analysis Report</h1>
+            <div>{{ADVISORY_ID}} | Generated: {{GENERATION_DATE}}</div>
+        </header>
+        
+        <div class="card">
+            <h2>Advisory Information</h2>
+            <table>
+                <tr>
+                    <th>Advisory ID</th>
+                    <td><a href="{{ADVISORY_URL}}" target="_blank">{{ADVISORY_ID}}</a></td>
+                </tr>
+                <tr>
+                    <th>Severity</th>
+                    <td>
+                        <div class="severity-box severity-{{SEVERITY}}">{{SEVERITY}}</div>
+                    </td>
+                </tr>
+                {{#CVE_ID}}
+                <tr>
+                    <th>CVE ID</th>
+                    <td>{{CVE_ID}}</td>
+                </tr>
+                {{/CVE_ID}}
+                {{#CVSS_SCORE}}
+                <tr>
+                    <th>CVSS Score</th>
+                    <td>{{CVSS_SCORE}}</td>
+                </tr>
+                {{/CVSS_SCORE}}
+                <tr>
+                    <th>Vulnerability Type</th>
+                    <td>{{VULN_TYPE}}</td>
+                </tr>
+                <tr>
+                    <th>Affected Versions</th>
+                    <td>{{AFFECTED_VERSIONS}}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="metrics-card">
+            <div class="metric-item">
+                <div class="metric-label">PoC Feasibility</div>
+                <div class="metric-value">{{POC_FEASIBILITY}}<span style="font-size: 16px;">/10</span></div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Patch Effectiveness</div>
+                <div class="metric-value">{{PATCH_EFFECTIVENESS}}<span style="font-size: 16px;">/10</span></div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">PoC Complexity</div>
+                <div class="metric-value">{{POC_COMPLEXITY}}</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Commits Analyzed</div>
+                <div class="metric-value">{{COMMITS_COUNT}}</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Vulnerability Explanation</h2>
+            <div>{{VULN_EXPLANATION}}</div>
+        </div>
+
+        <div class="card">
+            <h2>Impact Summary</h2>
+            <div>{{IMPACT_SUMMARY}}</div>
+        </div>
+
+        <div class="card">
+            <h2>PoC Feasibility Analysis</h2>
+            <div>{{POC_FEASIBILITY_ANALYSIS}}</div>
+            
+            <h3>Requirements for Exploitation</h3>
+            <table>
+                <tr>
+                    <th>Required Knowledge/Skills</th>
+                    <td>{{REQUIRED_SKILLS}}</td>
+                </tr>
+                <tr>
+                    <th>Information Gaps</th>
+                    <td>{{INFORMATION_GAPS}}</td>
+                </tr>
+                <tr>
+                    <th>Key Vulnerability Indicators</th>
+                    <td>{{KEY_VULN_INDICATORS}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Patch Analysis</h2>
+            <div>{{PATCH_ANALYSIS}}</div>
+        </div>
+        
+        <!-- Patch Files Section -->
+        <div class="card">
+            <h2>Patch Details</h2>
+            <div class="tab-container">
+                <div class="tabs">
+                    {{#COMMITS}}
+                    <div class="tab {{ACTIVE_CLASS}}" onclick="showTab('commit-{{INDEX}}')">Commit {{INDEX}}</div>
+                    {{/COMMITS}}
+                </div>
+                
+                {{#COMMITS}}
+                <div id="commit-{{INDEX}}" class="tab-content {{ACTIVE_CLASS}}">
+                    <div class="file-header">
+                        <div class="file-path">{{REPO_NAME}} @ {{COMMIT_HASH}}</div>
+                        <div class="file-stats">
+                            <span style="color:var(--diff-add-text)">+{{LINES_ADDED}}</span> 
+                            <span style="color:var(--diff-remove-text)">-{{LINES_REMOVED}}</span>
+                        </div>
+                    </div>
+                    <table class="diff-table">
+                        <thead>
+                            <tr>
+                                <th colspan="2">Line</th>
+                                <th>Code Changes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#DIFF_BLOCKS}}
+                            <tr>
+                                <td colspan="3" style="background-color:var(--code-background);padding:5px 10px;"><code>{{FILE_PATH}}</code></td>
+                            </tr>
+                            {{#LINES}}
+                            <tr class="{{LINE_CLASS}}">
+                                <td class="diff-line-num">{{OLD_LINE_NUM}}</td>
+                                <td class="diff-line-num">{{NEW_LINE_NUM}}</td>
+                                <td class="diff-code">{{CONTENT}}</td>
+                            </tr>
+                            {{/LINES}}
+                            {{/DIFF_BLOCKS}}
+                        </tbody>
+                    </table>
+                </div>
+                {{/COMMITS}}
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Vulnerability Timeline</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>Vulnerability Disclosure</h3>
+                        <p>{{DISCLOSURE_DATE}}</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>Patch Released</h3>
+                        <p>{{PATCH_DATE}}</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>Advisory Published</h3>
+                        <p>{{ADVISORY_DATE}}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-section">
+            <h2>Summary of Findings</h2>
+            <div class="card">
+                <p>{{SUMMARY_FINDINGS}}</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Report generated by ReportGPT on {{GENERATION_DATE}}</p>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show the selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate the clicked tab
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+
+        // Initialize: Set the first tab as active if none is active
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!document.querySelector('.tab-content.active')) {
+                const firstTab = document.querySelector('.tab');
+                if (firstTab) {
+                    const firstTabId = firstTab.getAttribute('onclick').match(/'([^']+)'/)[1];
+                    showTab(firstTabId);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

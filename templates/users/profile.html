@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile | ReportGPT Web{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1>
+            <i class="fas fa-user-circle text-primary"></i> 
+            User Profile
+        </h1>
+        <p class="lead">Manage your account settings and API keys.</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'edit-profile' %}" class="btn btn-primary">
+            <i class="fas fa-edit"></i> Edit Profile
+        </a>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Account Information</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Username:</strong> {{ user.username }}</p>
+                <p><strong>Email:</strong> {{ user.email }}</p>
+                <p><strong>Date Joined:</strong> {{ user.date_joined|date:"F j, Y" }}</p>
+                <p>
+                    <strong>Staff Status:</strong> 
+                    {% if user.is_staff %}
+                    <span class="badge bg-success">Yes</span>
+                    {% else %}
+                    <span class="badge bg-secondary">No</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">API Configuration</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    <strong>OpenAI API Key:</strong> 
+                    {% if profile.has_custom_openai_key %}
+                    <span class="badge bg-success">Configured</span>
+                    {% else %}
+                    <span class="badge bg-danger">Not Configured</span>
+                    {% endif %}
+                </p>
+                <p>
+                    <strong>GitHub Token:</strong> 
+                    {% if profile.has_github_token %}
+                    <span class="badge bg-success">Configured</span>
+                    {% else %}
+                    <span class="badge bg-danger">Not Configured</span>
+                    {% endif %}
+                </p>
+                <p><strong>Default AI Model:</strong> {{ profile.default_model }}</p>
+                <p>
+                    <strong>API Key:</strong> 
+                    <a href="{% url 'api-key' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-key"></i> Manage API Key
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent API Usage</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'api-usage' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-chart-line"></i> View Complete API Usage
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

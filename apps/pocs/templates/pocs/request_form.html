@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Configure PoC | Plurium POCanator{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tooltip-inner {
+        max-width: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-code"></i> Configure Proof of Concept
+                </h3>
+            </div>
+            <div class="card-body">
+                <!-- Advisory Info Summary -->
+                <div class="card mb-4 bg-light">
+                    <div class="card-header">
+                        <h4 class="mb-0"><i class="fas fa-shield-alt"></i> Advisory Information</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5>{{ analysis.advisory.github_id }} - {{ analysis.advisory.title }}</h5>
+                                <p class="text-muted">
+                                    <strong>Type:</strong> <span class="badge bg-info">{{ analysis.vuln_type }}</span>
+                                    {% if analysis.advisory.cve_id %}
+                                    <strong>CVE:</strong> <span class="badge bg-secondary">{{ analysis.advisory.cve_id }}</span>
+                                    {% endif %}
+                                    <strong>Severity:</strong> <span class="severity-badge severity-{{ analysis.advisory.severity }}">{{ analysis.advisory.severity }}</span>
+                                </p>
+                                <p>{{ analysis.vuln_explanation|truncatewords:50 }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <p><strong>PoC Feasibility:</strong></p>
+                                        <div class="progress" style="height: 25px;">
+                                            <div class="progress-bar bg-{{ analysis.poc_feasibility_class }}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ analysis.poc_feasibility }}0%;" 
+                                                 aria-valuenow="{{ analysis.poc_feasibility }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="10">
+                                                {{ analysis.poc_feasibility }}/10
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="mt-3"><strong>Complexity:</strong> {{ analysis.poc_complexity }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Important:</strong> Proof of Concept code should be used for testing and verification purposes only. 
+                        Use in accordance with your organization's security policies and legal requirements.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.target_os.id_for_label }}" class="form-label">{{ form.target_os.label }}</label>
+                                {{ form.target_os }}
+                                {% if form.target_os.help_text %}
+                                <small class="form-text text-muted">{{ form.target_os.help_text }}</small>
+                                {% endif %}
+                                {% if form.target_os.errors %}
+                                <div class="invalid-feedback">{{ form.target_os.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.target_language_version.id_for_label }}" class="form-label">{{ form.target_language_version.label }}</label>
+                                {{ form.target_language_version }}
+                                {% if form.target_language_version.help_text %}
+                                <small class="form-text text-muted">{{ form.target_language_version.help_text }}</small>
+                                {% endif %}
+                                {% if form.target_language_version.errors %}
+                                <div class="invalid-feedback">{{ form.target_language_version.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.exploitation_goal.id_for_label }}" class="form-label">{{ form.exploitation_goal.label }}</label>
+                        {{ form.exploitation_goal }}
+                        {% if form.exploitation_goal.help_text %}
+                        <small class="form-text text-muted">{{ form.exploitation_goal.help_text }}</small>
+                        {% endif %}
+                        {% if form.exploitation_goal.errors %}
+                        <div class="invalid-feedback">{{ form.exploitation_goal.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.use_deep_thinking }}
+                            <label for="{{ form.use_deep_thinking.id_for_label }}" class="form-check-label">
+                                {{ form.use_deep_thinking.label }}
+                            </label>
+                            {% if form.use_deep_thinking.help_text %}
+                            <small class="form-text text-muted d-block">{{ form.use_deep_thinking.help_text }}</small>
+                            {% endif %}
+                            {% if form.use_deep_thinking.errors %}
+                            <div class="invalid-feedback">{{ form.use_deep_thinking.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.additional_context.id_for_label }}" class="form-label">{{ form.additional_context.label }}</label>
+                        {{ form.additional_context }}
+                        {% if form.additional_context.help_text %}
+                        <small class="form-text text-muted">{{ form.additional_context.help_text }}</small>
+                        {% endif %}
+                        {% if form.additional_context.errors %}
+                        <div class="invalid-feedback">{{ form.additional_context.errors }}</div>
+                        {% endif %}
+                        
+                        <!-- Additional context suggestions -->
+                        <div class="mt-2">
+                            <a href="#contextSuggestions" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="contextSuggestions">
+                                <i class="fas fa-lightbulb"></i> Show example prompts
+                            </a>
+                            <div class="collapse mt-2" id="contextSuggestions">
+                                <div class="card card-body bg-light">
+                                    <h6>Example Prompts by Vulnerability Type</h6>
+                                    <ul class="nav nav-tabs" id="contextTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab">General</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="rce-tab" data-bs-toggle="tab" data-bs-target="#rce" type="button" role="tab">RCE</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="xss-tab" data-bs-toggle="tab" data-bs-target="#xss" type="button" role="tab">XSS</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="sqli-tab" data-bs-toggle="tab" data-bs-target="#sqli" type="button" role="tab">SQL Injection</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content p-3" id="contextTabContent">
+                                        <div class="tab-pane fade show active" id="general" role="tabpanel">
+                                            <p><strong>General Information:</strong></p>
+                                            <ul>
+                                                <li>Version details: "Target is running Node.js v14.17.0 with Express 4.17.1"</li>
+                                                <li>Environment constraints: "The target has SELinux enabled in enforcing mode"</li>
+                                                <li>Specific libraries: "Please use Requests library for the HTTP client portion"</li>
+                                                <li>Reproduction settings: "The affected server is behind basic authentication with username 'admin'"</li>
+                                            </ul>
+                                            <button class="btn btn-sm btn-outline-primary copy-prompt" data-prompt="Target is running Node.js v14.17.0 with Express 4.17.1 and has SELinux enabled in enforcing mode. Please use Requests library for the HTTP client portion of the PoC.">Copy Example</button>
+                                        </div>
+                                        <div class="tab-pane fade" id="rce" role="tabpanel">
+                                            <p><strong>For Remote Code Execution:</strong></p>
+                                            <ul>
+                                                <li>Specific target details: "Target is a Docker container running PHP 7.4 on Apache"</li>
+                                                <li>Command execution goals: "PoC should demonstrate reading /etc/passwd file"</li>
+                                                <li>Constraints: "The server blocks certain characters like semicolons and backticks"</li>
+                                                <li>Network details: "Service is exposed on port 8080"</li>
+                                            </ul>
+                                            <button class="btn btn-sm btn-outline-primary copy-prompt" data-prompt="Target is a Docker container running PHP 7.4 on Apache. The PoC should demonstrate reading /etc/passwd file. The server blocks certain characters like semicolons and backticks in inputs. Service is exposed on port 8080.">Copy Example</button>
+                                        </div>
+                                        <div class="tab-pane fade" id="xss" role="tabpanel">
+                                            <p><strong>For Cross-Site Scripting:</strong></p>
+                                            <ul>
+                                                <li>Target details: "Application is built with React 16.8 and doesn't use CSP"</li>
+                                                <li>Goal: "PoC should demonstrate an alert box with document.cookie"</li> 
+                                                <li>Constraints: "The application uses DOMPurify but with default settings"</li>
+                                                <li>Context: "The XSS vulnerability exists in the profile name field"</li>
+                                            </ul>
+                                            <button class="btn btn-sm btn-outline-primary copy-prompt" data-prompt="Application is built with React 16.8 and doesn't use CSP. The PoC should demonstrate an alert box with document.cookie. The application uses DOMPurify but with default settings. The XSS vulnerability exists in the profile name field.">Copy Example</button>
+                                        </div>
+                                        <div class="tab-pane fade" id="sqli" role="tabpanel">
+                                            <p><strong>For SQL Injection:</strong></p>
+                                            <ul>
+                                                <li>Database details: "Target is using MySQL 5.7 with PDO driver in PHP"</li>
+                                                <li>Goal: "Demonstrate extraction of user table contents"</li>
+                                                <li>Constraints: "Login form uses prepared statements but search doesn't"</li>
+                                                <li>Schema info: "Database has a 'users' table with 'username' and 'password' columns"</li>
+                                            </ul>
+                                            <button class="btn btn-sm btn-outline-primary copy-prompt" data-prompt="Target is using MySQL 5.7 with PDO driver in PHP. The PoC should demonstrate extraction of user table contents. Login form uses prepared statements but search functionality doesn't. Database has a 'users' table with 'username' and 'password' columns.">Copy Example</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expert Tips -->
+                    <div class="card mb-4 border-info">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="fas fa-star"></i> Expert Tips for Better Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-check-circle text-success"></i> Do Include</h6>
+                                    <ul>
+                                        <li>Specific version numbers of affected software</li>
+                                        <li>Environmental details (OS, frameworks, libraries)</li>
+                                        <li>Input validation details or filter avoidance techniques</li>
+                                        <li>Authentication requirements of the target system</li>
+                                        <li>Target functions or endpoints where the vulnerability exists</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-times-circle text-danger"></i> Avoid Including</h6>
+                                    <ul>
+                                        <li>Sensitive information like real credentials</li>
+                                        <li>Internal hostnames or IP addresses</li>
+                                        <li>Information unrelated to the vulnerability</li>
+                                        <li>Vague or overly general requests</li>
+                                        <li>Production environment details</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="alert alert-info mt-2 mb-0">
+                                <i class="fas fa-lightbulb"></i> <strong>Tip:</strong> 
+                                Enabling "Deep Thinking Mode" is recommended for complex vulnerabilities or when you need
+                                more detailed explanations of how the exploit works.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <a href="{% url 'analysis-detail' analysis.id %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-code"></i> Generate PoC
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+        
+        // Set up the copy prompt buttons
+        document.querySelectorAll('.copy-prompt').forEach(function(button) {
+            button.addEventListener('click', function() {
+                var promptText = this.getAttribute('data-prompt');
+                var textarea = document.getElementById('id_additional_context');
+                
+                if (textarea) {
+                    // Append to existing text if there's already content
+                    if (textarea.value && textarea.value.trim() !== '') {
+                        textarea.value += '\n\n' + promptText;
+                    } else {
+                        textarea.value = promptText;
+                    }
+                    
+                    // Focus the textarea and scroll to it
+                    textarea.focus();
+                    textarea.scrollIntoView({behavior: 'smooth'});
+                    
+                    // Flash effect to show it was copied
+                    const originalBg = textarea.style.backgroundColor;
+                    textarea.style.backgroundColor = '#d1e7dd';
+                    setTimeout(function() {
+                        textarea.style.backgroundColor = originalBg;
+                    }, 500);
+                    
+                    // Change button text temporarily
+                    const originalText = this.textContent;
+                    this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                    }, 2000);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

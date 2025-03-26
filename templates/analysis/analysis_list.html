@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load analysis_extras %}
+
+{% block title %}Analysis Results | ReportGPT Web{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>
+            <i class="fas fa-chart-line text-primary"></i> 
+            Analysis Results
+        </h1>
+        <p class="lead">Browse and filter vulnerability analysis results.</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="{% url 'analysis-list' %}" class="row g-3">
+            <div class="col-md-3">
+                <label for="type" class="form-label">Vulnerability Type</label>
+                <select name="type" id="type" class="form-select">
+                    <option value="">All Types</option>
+                    {% for type in vulnerability_types %}
+                    <option value="{{ type }}" {% if current_type == type %}selected{% endif %}>{{ type }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="poc_min" class="form-label">Min PoC Feasibility</label>
+                <select name="poc_min" id="poc_min" class="form-select">
+                    <option value="">Any</option>
+                    {% for i in "0123456789" %}
+                    <option value="{{ i }}" {% if current_poc_min == i %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="poc_max" class="form-label">Max PoC Feasibility</label>
+                <select name="poc_max" id="poc_max" class="form-select">
+                    <option value="">Any</option>
+                    {% for i in "0123456789" %}
+                    <option value="{{ i }}" {% if current_poc_max == i %}selected{% endif %}>{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="sort" class="form-label">Sort By</label>
+                <select name="sort" id="sort" class="form-select">
+                    <option value="-created_at" {% if current_sort == '-created_at' %}selected{% endif %}>Newest First</option>
+                    <option value="created_at" {% if current_sort == 'created_at' %}selected{% endif %}>Oldest First</option>
+                    <option value="-poc_feasibility" {% if current_sort == '-poc_feasibility' %}selected{% endif %}>PoC Feasibility (High to Low)</option>
+                    <option value="poc_feasibility" {% if current_sort == 'poc_feasibility' %}selected{% endif %}>PoC Feasibility (Low to High)</option>
+                    <option value="-patch_effectiveness" {% if current_sort == '-patch_effectiveness' %}selected{% endif %}>Patch Effectiveness (High to Low)</option>
+                    <option value="patch_effectiveness" {% if current_sort == 'patch_effectiveness' %}selected{% endif %}>Patch Effectiveness (Low to High)</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if analyses %}
+<!-- Analysis list -->
+<div class="row">
+    {% for analysis in analyses %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 hoverable">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="severity-badge severity-{{ analysis.advisory.severity }} me-2">{{ analysis.advisory.severity }}</span>
+                    {% if analysis.vuln_type %}
+                    <span class="badge bg-secondary">{{ analysis.vuln_type }}</span>
+                    {% endif %}
+                </div>
+                <small class="text-muted">{{ analysis.created_at|date:"M d, Y" }}</small>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{% url 'analysis-detail' analysis.id %}">Analysis #{{ analysis.id }}</a>
+                </h5>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <a href="{% url 'advisory-detail' analysis.advisory.github_id %}">{{ analysis.advisory.github_id }}</a>: 
+                    {{ analysis.advisory.title|truncatechars:50 }}
+                </h6>
+                
+                <p class="card-text">{{ analysis.result_summary|truncatechars:150 }}</p>
+                
+                <div class="mt-3">
+                    {% if analysis.poc_feasibility %}
+                    <div class="mb-2">
+                        <small class="text-muted">PoC Feasibility:</small>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar 
+                                {% if analysis.poc_feasibility >= 7 %}bg-danger
+                                {% elif analysis.poc_feasibility >= 4 %}bg-warning
+                                {% else %}bg-success{% endif %}" 
+                                role="progressbar" 
+                                style="width: {{ analysis.poc_feasibility|mul:10 }}%;" 
+                                aria-valuenow="{{ analysis.poc_feasibility }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="10">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <small>0</small>
+                            <small class="fw-bold">{{ analysis.poc_feasibility }}/10</small>
+                            <small>10</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if analysis.patch_effectiveness %}
+                    <div>
+                        <small class="text-muted">Patch Effectiveness:</small>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar 
+                                {% if analysis.patch_effectiveness >= 7 %}bg-success
+                                {% elif analysis.patch_effectiveness >= 4 %}bg-warning
+                                {% else %}bg-danger{% endif %}" 
+                                role="progressbar" 
+                                style="width: {{ analysis.patch_effectiveness|mul:10 }}%;" 
+                                aria-valuenow="{{ analysis.patch_effectiveness }}" 
+                                aria-valuemin="0" 
+                                aria-valuemax="10">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <small>0</small>
+                            <small class="fw-bold">{{ analysis.patch_effectiveness }}/10</small>
+                            <small>10</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <div>
+                    <small class="text-muted">By {{ analysis.user.username }}</small>
+                </div>
+                <div>
+                    {% if analysis.poc_complexity %}
+                    <span class="badge 
+                        {% if analysis.poc_complexity == 'High' %}bg-success
+                        {% elif analysis.poc_complexity == 'Medium' %}bg-warning
+                        {% else %}bg-danger{% endif %}">
+                        {{ analysis.poc_complexity }} Complexity
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1{% if current_type %}&type={{ current_type }}{% endif %}{% if current_poc_min %}&poc_min={{ current_poc_min }}{% endif %}{% if current_poc_max %}&poc_max={{ current_poc_max }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}" aria-label="First">
+                <span aria-hidden="true">&laquo;&laquo;</span>
+            </a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_poc_min %}&poc_min={{ current_poc_min }}{% endif %}{% if current_poc_max %}&poc_max={{ current_poc_max }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_poc_min %}&poc_min={{ current_poc_min }}{% endif %}{% if current_poc_max %}&poc_max={{ current_poc_max }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}">{{ num }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_poc_min %}&poc_min={{ current_poc_min }}{% endif %}{% if current_poc_max %}&poc_max={{ current_poc_max }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_poc_min %}&poc_min={{ current_poc_min }}{% endif %}{% if current_poc_max %}&poc_max={{ current_poc_max }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}" aria-label="Last">
+                <span aria-hidden="true">&raquo;&raquo;</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<!-- No analyses -->
+<div class="alert alert-info">
+    <p class="mb-0">
+        <i class="fas fa-info-circle"></i> 
+        No analyses found. Try adjusting your filters or 
+        import an advisory to analyze.
+    </p>
+</div>
+{% endif %}
+{% endblock %}

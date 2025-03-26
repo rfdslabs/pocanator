@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vulnerability Patch Analysis</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333;
+            --border-color: #e1e4e8;
+            --code-background: #f6f8fa;
+            --diff-add-color: #e6ffed;
+            --diff-add-text: #22863a;
+            --diff-remove-color: #ffeef0;
+            --diff-remove-text: #cb2431;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #2980b9;
+                --secondary-color: #3498db;
+                --danger-color: #e74c3c;
+                --success-color: #2ecc71;
+                --warning-color: #f39c12;
+                --background-color: #1a1a1a;
+                --card-background: #2d2d2d;
+                --text-color: #f0f0f0;
+                --border-color: #4a4a4a;
+                --code-background: #2c2c2c;
+                --diff-add-color: #133419;
+                --diff-add-text: #56d364;
+                --diff-remove-color: #3c1618;
+                --diff-remove-text: #ff7b72;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1, h2, h3, h4 {
+            margin-top: 0;
+            font-weight: 600;
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .metrics-card {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 2rem;
+        }
+
+        .metric-item {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            border-radius: 6px;
+            background-color: var(--card-background);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: gray;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 10px;
+            margin-right: 5px;
+        }
+
+        .badge-high {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .badge-medium {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .badge-low {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .badge-critical {
+            background-color: #7d0000;
+            color: white;
+        }
+
+        .severity-box {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .severity-Critical {
+            background-color: #7d0000;
+        }
+
+        .severity-High {
+            background-color: var(--danger-color);
+        }
+
+        .severity-Moderate, .severity-Medium {
+            background-color: var(--warning-color);
+        }
+
+        .severity-Low {
+            background-color: var(--success-color);
+        }
+
+        pre {
+            background-color: var(--code-background);
+            border-radius: 6px;
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid var(--border-color);
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 14px;
+        }
+
+        code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.9em;
+            padding: 0.2em 0.4em;
+            background-color: var(--code-background);
+            border-radius: 3px;
+        }
+
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .diff-table th {
+            text-align: left;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .diff-table td {
+            padding: 8px 10px;
+            border-top: 1px solid var(--border-color);
+            vertical-align: top;
+            line-height: 1.4;
+        }
+
+        .diff-table tr:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+
+        .diff-add {
+            background-color: var(--diff-add-color);
+            color: var(--diff-add-text);
+        }
+
+        .diff-remove {
+            background-color: var(--diff-remove-color);
+            color: var(--diff-remove-text);
+        }
+
+        .diff-line-num {
+            color: #8a8a8a;
+            text-align: right;
+            width: 40px;
+            user-select: none;
+            padding-right: 15px !important;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .diff-code {
+            white-space: pre-wrap;
+            word-break: break-all;
+            width: 100%;
+        }
+
+        .file-header {
+            background-color: var(--code-background);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            padding: 10px 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-path {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .file-stats {
+            font-size: 0.9em;
+            color: #8a8a8a;
+        }
+
+        .tab-container {
+            margin-top: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            margin-bottom: -1px;
+            background-color: transparent;
+        }
+
+        .tab.active {
+            border-color: var(--border-color);
+            border-radius: 4px 4px 0 0;
+            background-color: var(--card-background);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .timeline {
+            position: relative;
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+
+        .timeline::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            background-color: var(--border-color);
+            top: 0;
+            bottom: 0;
+            left: 20px;
+            margin-left: -2px;
+        }
+
+        .timeline-item {
+            padding: 10px 40px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: var(--secondary-color);
+            border: 4px solid var(--primary-color);
+            border-radius: 50%;
+            top: 15px;
+            left: 20px;
+            z-index: 1;
+            margin-left: -10px;
+        }
+
+        .timeline-content {
+            padding: 15px;
+            background-color: var(--card-background);
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .timeline-content h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: var(--secondary-color);
+        }
+
+        .summary-section {
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        table th, table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table th {
+            background-color: var(--code-background);
+            font-weight: 600;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: #8a8a8a;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .metrics-card {
+                flex-direction: column;
+            }
+            .metric-item {
+                min-width: unset;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Vulnerability Patch Analysis Report</h1>
+            <div>GHSA-747f-ww56-4q4h | Generated: 2025-03-25 20:06:13</div>
+        </header>
+        
+        <div class="card">
+            <h2>Advisory Information</h2>
+            <table>
+                <tr>
+                    <th>Advisory ID</th>
+                    <td><a href="https://github.com/advisories/GHSA-747f-ww56-4q4h" target="_blank">GHSA-747f-ww56-4q4h</a></td>
+                </tr>
+                <tr>
+                    <th>Severity</th>
+                    <td>
+                        <div class="severity-box severity-Critical">Critical</div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>CVE ID</th>
+                    <td>CVE-2024-9701</td>
+                </tr>
+                <tr>
+                    <th>Vulnerability Type</th>
+                    <td>RCE</td>
+                </tr>
+                <tr>
+                    <th>Affected Versions</th>
+                    <td>Not specified</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="metrics-card">
+            <div class="metric-item">
+                <div class="metric-label">PoC Feasibility</div>
+                <div class="metric-value">8<span style="font-size: 16px;">/10</span></div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Patch Effectiveness</div>
+                <div class="metric-value">10<span style="font-size: 16px;">/10</span></div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">PoC Complexity</div>
+                <div class="metric-value">Medium</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Commits Analyzed</div>
+                <div class="metric-value">1</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Vulnerability Explanation</h2>
+            <div>The identified vulnerability is a Remote Code Execution (RCE) flaw in the Kedro ShelveStore class, specifically in version 0.19.8. This vulnerability arises from the use of Python's `shelve` module, which relies on `pickle` for serialization. An attacker can exploit this by crafting a malicious payload and storing it in the shelve file. When the payload is deserialized, it can execute arbitrary Python code, potentially leading to a full system compromise.</div>
+        </div>
+
+        <div class="card">
+            <h2>Impact Summary</h2>
+            <div>If exploited, this vulnerability could allow an attacker to execute arbitrary code on the affected system, leading to a full system compromise. This could result in unauthorized access to sensitive data, disruption of services, or further propagation of malicious activities within the network.</div>
+        </div>
+
+        <div class="card">
+            <h2>PoC Feasibility Analysis</h2>
+            <div>• **Confidence Level:** 8/10
+• **Complexity Assessment:** Medium
+• **Required Knowledge/Skills for Exploitation:** 
+• Understanding of Python serialization and deserialization processes.
+• Ability to craft malicious payloads using `pickle`.
+• Familiarity with the Kedro framework and its session management.
+• **Availability of Target Environment Information:** The advisory provides sufficient context about the vulnerable component (`ShelveStore` class) and its usage of `shelve` and `pickle`.
+• **Information Gaps:** 
+• Specific details about how session data is structured and accessed.
+• Exact environment configurations where the vulnerable code is deployed.
+• **Key Vulnerability Components Exposed by the Patch:** The removal of the `ShelveStore` class highlights the exact component and method (`shelve.open`) that were vulnerable, providing insights into where the exploit could be targeted.</div>
+            
+            <h3>Requirements for Exploitation</h3>
+            <table>
+                <tr>
+                    <th>Required Knowledge/Skills</th>
+                    <td>• Understanding of Python serialization and deserialization processes.
+• Ability to craft malicious payloads using `pickle`.
+• Familiarity with the Kedro framework and its session management.</td>
+                </tr>
+                <tr>
+                    <th>Information Gaps</th>
+                    <td>• Specific details about how session data is structured and accessed.
+• Exact environment configurations where the vulnerable code is deployed.</td>
+                </tr>
+                <tr>
+                    <th>Key Vulnerability Indicators</th>
+                    <td>The removal of the `ShelveStore` class highlights the exact component and method (`shelve.open`) that were vulnerable, providing insights into where the exploit could be targeted.</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Patch Analysis</h2>
+            <div>The patch addresses the vulnerability by completely removing the `ShelveStore` class from the codebase. This class was responsible for persisting session data using the `shelve` module, which was the root cause of the RCE vulnerability due to its reliance on `pickle`. By eliminating the `ShelveStore` class, the patch effectively removes the vulnerable code path, thus mitigating the risk of exploitation.</div>
+        </div>
+        
+        <!-- Patch Files Section -->
+        <div class="card">
+            <h2>Patch Details</h2>
+            <div class="tab-container">
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('commit-1')">Commit 1</div>
+                </div>
+                
+                <div id="commit-1" class="tab-content active">
+                    <div class="file-header">
+                        <div class="file-path">kedro-org/kedro @ 66e5e07</div>
+                        <div class="file-stats">
+                            <span style="color:var(--diff-add-text)">+3</span> 
+                            <span style="color:var(--diff-remove-text)">-77</span>
+                        </div>
+                    </div>
+                    <table class="diff-table">
+                        <thead>
+                            <tr>
+                                <th colspan="2">Line</th>
+                                <th>Code Changes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" style="background-color:var(--code-background);padding:5px 10px;"><code>tests/framework/project/test_settings.py</code></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">40</td>
+                                <td class="diff-line-num">39</td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">41</td>
+                                <td class="diff-line-num">40</td>
+                                <td class="diff-code">                DISABLE_HOOKS_FOR_PLUGINS = (&quot;kedro-viz&quot;,)</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">42</td>
+                                <td class="diff-line-num">41</td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">43</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">                from kedro.framework.session.shelvestore import ShelveStore</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">44</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">                SESSION_STORE_CLASS = ShelveStore</td>
+                            </tr>
+                            <tr class="diff-add">
+                                <td class="diff-line-num"></td>
+                                <td class="diff-line-num">42</td>
+                                <td class="diff-code">                from kedro.framework.session.store import BaseSessionStore</td>
+                            </tr>
+                            <tr class="diff-add">
+                                <td class="diff-line-num"></td>
+                                <td class="diff-line-num">43</td>
+                                <td class="diff-code">                SESSION_STORE_CLASS = BaseSessionStore</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">45</td>
+                                <td class="diff-line-num">44</td>
+                                <td class="diff-code">                SESSION_STORE_ARGS = {{</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">46</td>
+                                <td class="diff-line-num">45</td>
+                                <td class="diff-code">                    &quot;path&quot;: &quot;./sessions&quot;</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">47</td>
+                                <td class="diff-line-num">46</td>
+                                <td class="diff-code">                }}</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">103</td>
+                                <td class="diff-line-num">102</td>
+                                <td class="diff-code">    configure_project(mock_package_name_with_settings_file)</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">104</td>
+                                <td class="diff-line-num">103</td>
+                                <td class="diff-code">    assert len(settings.HOOKS) == 1 and isinstance(settings.HOOKS[0], ProjectHooks)</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">105</td>
+                                <td class="diff-line-num">104</td>
+                                <td class="diff-code">    assert settings.DISABLE_HOOKS_FOR_PLUGINS.to_list() == [&quot;kedro-viz&quot;]</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">106</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    assert settings.SESSION_STORE_CLASS is ShelveStore</td>
+                            </tr>
+                            <tr class="diff-add">
+                                <td class="diff-line-num"></td>
+                                <td class="diff-line-num">105</td>
+                                <td class="diff-code">    assert settings.SESSION_STORE_CLASS is BaseSessionStore</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">107</td>
+                                <td class="diff-line-num">106</td>
+                                <td class="diff-code">    assert settings.SESSION_STORE_ARGS == {&quot;path&quot;: &quot;./sessions&quot;}</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">108</td>
+                                <td class="diff-line-num">107</td>
+                                <td class="diff-code">    assert settings.CONTEXT_CLASS is MyContext</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">109</td>
+                                <td class="diff-line-num">108</td>
+                                <td class="diff-code">    assert settings.CONF_SOURCE == &quot;test_conf&quot;</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="background-color:var(--code-background);padding:5px 10px;"><code>tests/framework/session/test_session.py</code></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">235</td>
+                                <td class="diff-line-num">233</td>
+                                <td class="diff-code">    )</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">236</td>
+                                <td class="diff-line-num">234</td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">237</td>
+                                <td class="diff-line-num">235</td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">238</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">@pytest.fixture</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">239</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">def mock_settings_shelve_session_store(mocker, fake_project):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">240</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    shelve_location = fake_project / &quot;nested&quot; / &quot;sessions&quot;</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">241</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">242</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    class MockSettings(_ProjectSettings):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">243</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        _SESSION_STORE_CLASS = _IsSubclassValidator(</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">244</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">            &quot;SESSION_STORE_CLASS&quot;, default=lambda *_: ShelveStore</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">245</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        )</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">246</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        _SESSION_STORE_ARGS = Validator(</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">247</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">            &quot;SESSION_STORE_ARGS&quot;, default={&quot;path&quot;: shelve_location.as_posix()}</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">248</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        )</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">249</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">250</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    return _mock_imported_settings_paths(mocker, MockSettings())</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">251</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">252</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">253</td>
+                                <td class="diff-line-num">236</td>
+                                <td class="diff-code">@pytest.fixture</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">254</td>
+                                <td class="diff-line-num">237</td>
+                                <td class="diff-code">def fake_session_id(mocker):</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">255</td>
+                                <td class="diff-line-num">238</td>
+                                <td class="diff-code">    session_id = &quot;fake_session_id&quot;</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">502</td>
+                                <td class="diff-line-num">485</td>
+                                <td class="diff-code">        ]</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">503</td>
+                                <td class="diff-line-num">486</td>
+                                <td class="diff-code">        assert actual_log_messages == expected_log_messages</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">504</td>
+                                <td class="diff-line-num">487</td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">505</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    @pytest.mark.usefixtures(&quot;mock_settings_shelve_session_store&quot;)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">506</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    def test_shelve_store(self, fake_project, fake_session_id, caplog, mocker):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">507</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        mocker.patch(&quot;pathlib.Path.is_file&quot;, return_value=True)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">508</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve_location = fake_project / &quot;nested&quot; / &quot;sessions&quot;</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">509</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        other = KedroSession.create(fake_project)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">510</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert other._store.__class__ is ShelveStore</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">511</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert other._store._path == shelve_location.as_posix()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">512</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert other._store._location == shelve_location / fake_session_id / &quot;store&quot;</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">513</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert other._store._session_id == fake_session_id</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">514</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert not shelve_location.is_dir()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">515</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">516</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        other.close()  # session data persisted</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">517</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert shelve_location.is_dir()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">518</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        actual_log_messages = [</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">519</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">            rec.getMessage()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">520</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">            for rec in caplog.records</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">521</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">            if rec.name == STORE_LOGGER_NAME and rec.levelno == logging.DEBUG</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">522</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        ]</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">523</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert not actual_log_messages</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">524</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">525</td>
+                                <td class="diff-line-num">488</td>
+                                <td class="diff-code">    def test_wrong_store_type(self, mock_settings_file_bad_session_store_class):</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">526</td>
+                                <td class="diff-line-num">489</td>
+                                <td class="diff-code">        pattern = (</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">527</td>
+                                <td class="diff-line-num">490</td>
+                                <td class="diff-code">            &quot;Invalid value 'tests.framework.session.test_session.BadStore' received &quot;</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="background-color:var(--code-background);padding:5px 10px;"><code>tests/framework/session/test_store.py</code></td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">48</td>
+                                <td class="diff-line-num">44</td>
+                                <td class="diff-code">            if rec.name == STORE_LOGGER_NAME and rec.levelno == logging.DEBUG</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">49</td>
+                                <td class="diff-line-num">45</td>
+                                <td class="diff-code">        ]</td>
+                            </tr>
+                            <tr class="">
+                                <td class="diff-line-num">50</td>
+                                <td class="diff-line-num">46</td>
+                                <td class="diff-code">        assert actual_debug_messages == expected_debug_messages</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">51</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">52</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">53</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">@pytest.fixture</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">54</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">def shelve_path(tmp_path):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">55</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    return Path(tmp_path / &quot;path&quot; / &quot;to&quot; / &quot;sessions&quot;)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">56</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">57</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">58</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">class TestShelveStore:</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">59</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    def test_empty(self, shelve_path):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">60</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve = ShelveStore(str(shelve_path), FAKE_SESSION_ID)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">61</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert shelve == {}</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">62</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert shelve._location == shelve_path / FAKE_SESSION_ID / &quot;store&quot;</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">63</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert not shelve_path.exists()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">64</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">65</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    def test_save(self, shelve_path):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">66</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert not shelve_path.exists()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">67</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">68</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve = ShelveStore(str(shelve_path), FAKE_SESSION_ID)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">69</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve[&quot;shelve_path&quot;] = shelve_path</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">70</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve.save()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">71</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">72</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert (shelve_path / FAKE_SESSION_ID).is_dir()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">73</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">74</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        reloaded = ShelveStore(str(shelve_path), FAKE_SESSION_ID)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">75</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert reloaded == {&quot;shelve_path&quot;: shelve_path}</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">76</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">77</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">    def test_update(self, shelve_path):</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">78</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve = ShelveStore(str(shelve_path), FAKE_SESSION_ID)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">79</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve[&quot;shelve_path&quot;] = shelve_path</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">80</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve.save()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">81</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">82</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve.update(new_key=&quot;new_value&quot;)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">83</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        del shelve[&quot;shelve_path&quot;]</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">84</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        reloaded = ShelveStore(str(shelve_path), FAKE_SESSION_ID)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">85</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert reloaded == {&quot;shelve_path&quot;: shelve_path}  # changes not saved yet</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">86</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code"></td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">87</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        shelve.save()</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">88</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        reloaded = ShelveStore(str(shelve_path), FAKE_SESSION_ID)</td>
+                            </tr>
+                            <tr class="diff-remove">
+                                <td class="diff-line-num">89</td>
+                                <td class="diff-line-num"></td>
+                                <td class="diff-code">        assert reloaded == {&quot;new_key&quot;: &quot;new_value&quot;}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Vulnerability Timeline</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>Vulnerability Disclosure</h3>
+                        <p>2025-03-20T12:32:51Z</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>Patch Released</h3>
+                        <p>Unknown</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>Advisory Published</h3>
+                        <p>2025-03-20T12:32:51Z</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-section">
+            <h2>Summary of Findings</h2>
+            <div class="card">
+                <p>The analyzed vulnerability is a RCE type with Critical severity. PoC development feasibility is rated 8/10 with Medium complexity. The patch effectiveness is rated 10/10.</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Report generated by ReportGPT on 2025-03-25 20:06:13</p>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show the selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate the clicked tab
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+
+        // Initialize: Set the first tab as active if none is active
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!document.querySelector('.tab-content.active')) {
+                const firstTab = document.querySelector('.tab');
+                if (firstTab) {
+                    const firstTabId = firstTab.getAttribute('onclick').match(/'([^']+)'/)[1];
+                    showTab(firstTabId);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

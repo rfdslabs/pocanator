@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Import Advisory | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-file-import"></i> 
+                    Import GitHub Advisory
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Import a single security advisory from GitHub for analysis. Enter either a GitHub Advisory URL or just the GHSA ID.
+                </p>
+                {% url 'batch-import-advisories' as batch_url %}
+                {% if batch_url %}
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-lightbulb"></i> Need to import multiple advisories? Try the 
+                    <a href="{{ batch_url }}">batch import</a> feature instead.
+                </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="fas fa-download"></i> Import Advisory
+                    </button>
+                    <a href="{% url 'advisory-list' %}" class="btn btn-secondary mt-3">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </a>
+                </form>
+            </div>
+            <div class="card-footer bg-light">
+                <h5>Examples:</h5>
+                <ul>
+                    <li><code>https://github.com/advisories/GHSA-747f-ww56-4q4h</code></li>
+                    <li><code>GHSA-f82v-jwr5-mffw</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

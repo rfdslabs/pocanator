@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% load advisory_extras analysis_extras %}
+
+{% block title %}{{ advisory.github_id }} | Plurium POCanator{% endblock %}
+
+{% block extra_css %}
+<style>
+    h2.text-primary {
+        font-size: 1.7rem;
+        line-height: 1.3;
+        font-weight: 600;
+        color: #2c3e50 !important; /* darker blue that's easier to read */
+        padding-top: 0.5rem;
+        border-bottom: 1px solid #eaecef;
+        padding-bottom: 0.5rem;
+        margin-top: 0.75rem;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+        color: #6c757d;
+    }
+    
+    h1 .severity-badge {
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>
+            <span class="severity-badge severity-{{ advisory.severity }} me-2">{{ advisory.severity }}</span>
+            {{ advisory.github_id }}
+        </h1>
+        {% if advisory.title %}
+        <h2 class="text-primary mb-3">{{ advisory.title }}</h2>
+        {% else %}
+        <h4 class="text-muted mb-3">No title available</h4>
+        {% endif %}
+    </div>
+    <div class="col-md-4 text-end">
+        {% if user.is_authenticated %}
+        <div class="btn-group">
+            {% url 'create-analysis' advisory.github_id as create_analysis_url %}
+            {% if create_analysis_url %}
+            <a href="{{ create_analysis_url }}" class="btn btn-primary">
+                <i class="fas fa-play"></i> Run Analysis
+            </a>
+            {% endif %}
+            <a href="{{ advisory.url }}" target="_blank" class="btn btn-secondary">
+                <i class="fas fa-external-link-alt"></i> View on GitHub
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Advisory Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Advisory Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Published:</div>
+                    <div class="col-md-9">{{ advisory.published_date|default:"Unknown" }}</div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Vulnerability Type:</div>
+                    <div class="col-md-9">
+                        {% if advisory.vulnerability_type %}
+                            <span class="badge bg-secondary">{{ advisory.vulnerability_type }}</span>
+                        {% else %}
+                            <span class="text-muted">Not specified</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">CVE ID:</div>
+                    <div class="col-md-9">
+                        {% if advisory.cve_id %}
+                            <a href="https://cve.mitre.org/cgi-bin/cvename.cgi?name={{ advisory.cve_id }}" 
+                               target="_blank" class="badge bg-dark">
+                                {{ advisory.cve_id }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted">Not assigned</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">CVSS Score:</div>
+                    <div class="col-md-9">
+                        {% if advisory.cvss_score %}
+                            {{ advisory.cvss_score }}
+                        {% else %}
+                            <span class="text-muted">Not specified</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if advisory.affected_versions %}
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Affected Versions:</div>
+                    <div class="col-md-9">{{ advisory.affected_versions }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Description Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-align-left"></i> Description
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="markdown-content">
+                    {{ advisory.description|markdown_to_html }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Commits Card -->
+        {% if commits %}
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-code-branch"></i> Associated Commits ({{ commits|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for commit in commits %}
+                    <a href="{% url 'commit-detail' commit.id %}" 
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ commit.repo_name }}</h6>
+                            <small>{{ commit.fetch_date|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1"><code>{{ commit.short_hash }}</code></p>
+                        <small>
+                            <span class="text-success">+{{ commit.lines_added }}</span> / 
+                            <span class="text-danger">-{{ commit.lines_removed }}</span> lines in
+                            {{ commit.files_changed }} file(s)
+                        </small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-code-branch"></i> Associated Commits
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle"></i> No commits found for this advisory.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Analyses Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line"></i> Analyses
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if analyses %}
+                <div class="list-group">
+                    {% for analysis in analyses %}
+                    <a href="{% url 'analysis-detail' analysis.id %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Analysis #{{ analysis.id }}</h6>
+                            <small>{{ analysis.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">
+                            {% if analysis.poc_feasibility %}
+                            <span class="badge bg-primary">PoC Feasibility: {{ analysis.poc_feasibility }}/10</span>
+                            {% endif %}
+                            {% if analysis.poc_complexity %}
+                            <span class="badge bg-secondary">{{ analysis.poc_complexity }} Complexity</span>
+                            {% endif %}
+                        </p>
+                        <small>By {{ analysis.user.username }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle"></i> No analyses have been performed yet.
+                </div>
+                {% if user.is_authenticated %}
+                {% url 'create-analysis' advisory.github_id as create_analysis_url %}
+                {% if create_analysis_url %}
+                <a href="{{ create_analysis_url }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-play"></i> Run Analysis
+                </a>
+                {% endif %}
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Quick Stats Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie"></i> Quick Stats
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Commits
+                        <span class="badge bg-primary rounded-pill">{{ commits|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Analyses
+                        <span class="badge bg-primary rounded-pill">{{ analyses|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Added
+                        <span class="badge bg-success rounded-pill">{{ commits|map:"lines_added"|sum_values }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Removed
+                        <span class="badge bg-danger rounded-pill">{{ commits|map:"lines_removed"|sum_values }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Delete PoC | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Confirm Deletion
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <p>Are you sure you want to delete the Proof of Concept for <strong>{{ poc.analysis.advisory.github_id }}</strong>?</p>
+                    
+                    {% if poc.next_versions.exists %}
+                    <div class="alert alert-danger">
+                        <p><strong>Warning:</strong> This PoC has newer versions that were regenerated from it. Deleting this PoC will break the version history chain.</p>
+                    </div>
+                    {% endif %}
+                    
+                    <p>This action cannot be undone.</p>
+                </div>
+                
+                <form method="post" action="{% url 'delete_poc' poc.id %}">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'view_poc' poc.id %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt"></i> Delete PoC
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

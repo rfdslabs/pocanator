@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% load analysis_extras advisory_extras %}
+
+{% block title %}Analysis #{{ analysis.id }} | ReportGPT Web{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2>
+            <i class="fas fa-chart-line text-primary"></i>
+            Analysis #{{ analysis.id }}
+        </h2>
+        <h5>{{ analysis.advisory.github_id }}: {{ analysis.advisory.title|truncatechars:50 }}</h5>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'analysis-report' analysis.id %}" class="btn btn-primary">
+            <i class="fas fa-file-alt"></i> Full Report
+        </a>
+        <a href="{% url 'advisory-detail' analysis.advisory.github_id %}" class="btn btn-secondary">
+            <i class="fas fa-shield-alt"></i> Advisory
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <!-- Analysis Summary Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-clipboard-list"></i> Analysis Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <th scope="row">Created</th>
+                            <td>{{ analysis.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">By</th>
+                            <td>{{ analysis.user.username }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Vulnerability Type</th>
+                            <td>
+                                {% if analysis.vuln_type %}
+                                <span class="badge bg-secondary">{{ analysis.vuln_type }}</span>
+                                {% else %}
+                                <span class="text-muted">Not specified</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Severity</th>
+                            <td>
+                                <span class="severity-badge severity-{{ analysis.advisory.severity }}">
+                                    {{ analysis.advisory.severity }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">PoC Feasibility</th>
+                            <td>
+                                {% if analysis.poc_feasibility %}
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar 
+                                        {% if analysis.poc_feasibility >= 7 %}bg-danger
+                                        {% elif analysis.poc_feasibility >= 4 %}bg-warning
+                                        {% else %}bg-success{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ analysis.poc_feasibility|mul:10 }}%;" 
+                                        aria-valuenow="{{ analysis.poc_feasibility }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="10">
+                                        {{ analysis.poc_feasibility }}/10
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">Not evaluated</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">PoC Complexity</th>
+                            <td>
+                                {% if analysis.poc_complexity %}
+                                <span class="badge 
+                                    {% if analysis.poc_complexity == 'High' %}bg-success
+                                    {% elif analysis.poc_complexity == 'Medium' %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ analysis.poc_complexity }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">Not evaluated</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Patch Effectiveness</th>
+                            <td>
+                                {% if analysis.patch_effectiveness %}
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar 
+                                        {% if analysis.patch_effectiveness >= 7 %}bg-success
+                                        {% elif analysis.patch_effectiveness >= 4 %}bg-warning
+                                        {% else %}bg-danger{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ analysis.patch_effectiveness|mul:10 }}%;" 
+                                        aria-valuenow="{{ analysis.patch_effectiveness }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="10">
+                                        {{ analysis.patch_effectiveness }}/10
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">Not evaluated</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <!-- Analysis Results -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt"></i> Analysis Results
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.markdown_report %}
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle"></i> This is a summary of the analysis. 
+                    <a href="{% url 'analysis-report' analysis.id %}">View the full report</a> for more details.
+                </div>
+                
+                <div class="markdown-content">
+                    <h3>Vulnerability Explanation</h3>
+                    {{ analysis.vuln_explanation|markdown_to_html }}
+                    
+                    {% if analysis.patch_analysis %}
+                    <h3>Patch Analysis</h3>
+                    {{ analysis.patch_analysis|markdown_to_html }}
+                    {% endif %}
+                    
+                    {% if analysis.impact_summary %}
+                    <h3>Impact Summary</h3>
+                    {{ analysis.impact_summary|markdown_to_html }}
+                    {% endif %}
+                    
+                    {% if analysis.required_skills or analysis.information_gaps or analysis.key_indicators %}
+                    <h3>PoC Feasibility Details</h3>
+                    
+                    {% if analysis.required_skills %}
+                    <h4>Required Skills</h4>
+                    {{ analysis.required_skills|markdown_to_html }}
+                    {% endif %}
+                    
+                    {% if analysis.information_gaps %}
+                    <h4>Information Gaps</h4>
+                    {{ analysis.information_gaps|markdown_to_html }}
+                    {% endif %}
+                    
+                    {% if analysis.key_indicators %}
+                    <h4>Key Vulnerability Indicators</h4>
+                    {{ analysis.key_indicators|markdown_to_html }}
+                    {% endif %}
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> No analysis results available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Advisory Details -->
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt"></i> Advisory Details
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if analysis.advisory.description %}
+                <div class="markdown-content">
+                    {{ analysis.advisory.description|markdown_to_html|truncatewords_html:100 }}
+                    {% if analysis.advisory.description|wordcount > 100 %}
+                    <a href="{% url 'advisory-detail' analysis.advisory.github_id %}">Read more</a>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No description available.
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'advisory-detail' analysis.advisory.github_id %}" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-shield-alt"></i> View Full Advisory
+                </a>
+                {% if analysis.advisory.url %}
+                <a href="{{ analysis.advisory.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-external-link-alt"></i> GitHub
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if analysis.poc_feasibility >= 5 %}
+        <!-- PoC Generation Card -->
+        <div class="card mt-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-code"></i> Proof of Concept
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    Based on the analysis, this vulnerability has a PoC feasibility score of <strong>{{ analysis.poc_feasibility }}/10</strong>, 
+                    indicating that a working proof of concept exploit is likely feasible.
+                </p>
+                
+                <div class="text-center">
+                    <a href="{% url 'request_poc' analysis.id %}" class="btn btn-danger">
+                        <i class="fas fa-code"></i> Generate Proof of Concept
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

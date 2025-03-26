@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% load analysis_extras %}
+{% load poc_extras %}
+
+{% block title %}PoC Version History | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-history"></i> PoC Version History
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="lead">
+                        Showing version history for Proof of Concept of 
+                        <a href="{% url 'advisory-detail' current_poc.analysis.advisory.github_id %}">
+                            {{ current_poc.analysis.advisory.github_id }}
+                        </a>
+                    </p>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Each regeneration creates a new version while preserving the previous one for comparison.
+                    </div>
+                    
+                    <a href="{% url 'view_poc' current_poc.id %}" class="btn btn-outline-secondary mb-4">
+                        <i class="fas fa-arrow-left"></i> Back to Current PoC
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">Versions Timeline</h4>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for version in versions %}
+                        <div class="timeline-item {% if version.id == current_poc.id %}current-version{% endif %}">
+                            <div class="card {% if version.id == current_poc.id %}border-primary{% endif %} mb-3">
+                                <div class="card-header d-flex justify-content-between align-items-center 
+                                    {% if version.id == current_poc.id %}bg-primary text-white{% endif %}">
+                                    <h5>
+                                        Version {{ forloop.counter }} 
+                                        {% if version.id == current_poc.id %}
+                                        <span class="badge bg-light text-primary">Current</span>
+                                        {% endif %}
+                                    </h5>
+                                    <span class="text-muted">{{ version.created_at }}</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6><i class="fas fa-code"></i> Code Preview:</h6>
+                                            <pre class="code-preview"><code>{{ version.code|truncatechars:200 }}</code></pre>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <table class="table table-sm">
+                                                <tr>
+                                                    <th>Status</th>
+                                                    <td>
+                                                        <span class="badge {% if version.status == 'completed' %}bg-success{% elif version.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                                            {{ version.get_status_display }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Language</th>
+                                                    <td>{{ version.language|default:"Unknown" }}</td>
+                                                </tr>
+                                                {% if version.tokens_used %}
+                                                <tr>
+                                                    <th>Tokens</th>
+                                                    <td>{{ version.tokens_used }}</td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if version.worked_as_expected != None %}
+                                                <tr>
+                                                    <th>Worked</th>
+                                                    <td>
+                                                        {% if version.worked_as_expected %}
+                                                        <span class="text-success"><i class="fas fa-check-circle"></i> Yes</span>
+                                                        {% else %}
+                                                        <span class="text-danger"><i class="fas fa-times-circle"></i> No</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if version.effectiveness_score %}
+                                                <tr>
+                                                    <th>Rating</th>
+                                                    <td>{{ version.effectiveness_score }}/10</td>
+                                                </tr>
+                                                {% endif %}
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <a href="{% url 'view_poc' version.id %}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i> View Full PoC
+                                        </a>
+                                        
+                                        {% if version.id != current_poc.id %}
+                                        <a href="#" class="btn btn-sm btn-outline-info compare-btn" 
+                                           data-version-id="{{ version.id }}" data-version-name="Version {{ forloop.counter }}">
+                                            <i class="fas fa-exchange-alt"></i> Compare with Current
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comparison Modal -->
+<div class="modal fade" id="compareModal" tabindex="-1" aria-labelledby="compareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="compareModalLabel">Comparing Versions</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 id="older-version-title">Version</h6>
+                        <pre><code id="older-version-code"></code></pre>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Current Version</h6>
+                        <pre><code id="current-version-code">{{ current_poc.code }}</code></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline:before {
+        content: '';
+        position: absolute;
+        left: 5px;
+        top: 0;
+        height: 100%;
+        width: 3px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: -30px;
+        top: 15px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #adb5bd;
+        border: 2px solid #fff;
+    }
+    
+    .timeline-item.current-version:before {
+        background: #0d6efd;
+        width: 16px;
+        height: 16px;
+        left: -32px;
+    }
+    
+    .code-preview {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 0.9em;
+        max-height: 150px;
+        overflow: auto;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle compare button clicks
+        const compareButtons = document.querySelectorAll('.compare-btn');
+        const olderVersionCode = document.getElementById('older-version-code');
+        const olderVersionTitle = document.getElementById('older-version-title');
+        const currentVersionCode = document.getElementById('current-version-code');
+        const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
+        
+        compareButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const versionId = this.getAttribute('data-version-id');
+                const versionName = this.getAttribute('data-version-name');
+                
+                // Simple fetch to get the older version's code
+                fetch(`/api/pocs/${versionId}/code/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        olderVersionCode.textContent = data.code;
+                        olderVersionTitle.textContent = versionName;
+                        
+                        // Apply syntax highlighting if you're using a library for that
+                        if (window.hljs) {
+                            hljs.highlightElement(olderVersionCode);
+                            hljs.highlightElement(currentVersionCode);
+                        }
+                        
+                        compareModal.show();
+                    })
+                    .catch(error => {
+                        // Fallback for demo - in production you'd handle this error properly
+                        olderVersionCode.textContent = "Error loading code. Please try again.";
+                        compareModal.show();
+                    });
+            });
+        });
+    });
+</script>
+{% endblock %}

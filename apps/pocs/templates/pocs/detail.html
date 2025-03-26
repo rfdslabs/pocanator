@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+{% load analysis_extras %}
+{% load poc_extras %}
+
+{% block title %}Proof of Concept | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <!-- PoC Code Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">
+                    <i class="fas fa-code"></i> Proof of Concept Code
+                </h3>
+                <button class="btn btn-sm btn-outline-light" id="copy-code-btn">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <pre class="rounded-0 mb-0 poc-code"><code id="poc-code">{{ poc.code }}</code></pre>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted">Language detected: </span>
+                        <span id="language-detected" class="badge bg-secondary">{{ poc.language|default:"auto-detect" }}</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" id="toggle-line-numbers-btn">
+                            <i class="fas fa-list-ol"></i> Toggle Line Numbers
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Explanation (moved from sidebar to main content for prominence) -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-lightbulb"></i> Explanation
+                </h3>
+            </div>
+            <div class="card-body markdown-content">
+                {% if poc.explanation %}
+                    {{ poc.explanation|markdown_to_html }}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> No explanation was provided for this PoC. 
+                        If you regenerate this PoC, you can request a detailed explanation.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Setup Instructions -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-cogs"></i> Setup Instructions
+                </h3>
+            </div>
+            <div class="card-body markdown-content">
+                {% if poc.setup_instructions %}
+                    {{ poc.setup_instructions|markdown_to_html }}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> No setup instructions were provided for this PoC.
+                        This may be a standalone PoC that doesn't require additional setup.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Security Warnings -->
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Security Warnings
+                </h3>
+            </div>
+            <div class="card-body markdown-content">
+                {% if poc.security_warnings %}
+                    {{ poc.security_warnings|markdown_to_html }}
+                {% else %}
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-exclamation-circle"></i> No specific security warnings were provided for this PoC.
+                    </div>
+                {% endif %}
+                
+                <div class="alert alert-warning mt-3">
+                    <strong>Disclaimer:</strong> This PoC is provided for security testing and verification purposes only. 
+                    Use responsibly and in accordance with applicable laws and regulations.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- PoC Info Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h3 class="mb-0">
+                    <i class="fas fa-info-circle"></i> PoC Information
+                </h3>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Status</th>
+                        <td><span class="badge bg-success">{{ poc.get_status_display }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Actions</th>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'regenerate_poc' poc.id %}" class="btn btn-outline-primary" title="Regenerate PoC while preserving this version for comparison">
+                                    <i class="fas fa-sync-alt"></i> Regenerate
+                                </a>
+                                <a href="{% url 'delete_poc' poc.id %}" class="btn btn-outline-danger" title="Delete this PoC">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </a>
+                                {% if poc.previous_version or poc.next_versions.exists %}
+                                <a href="{% url 'poc_history' poc.id %}" class="btn btn-outline-info" title="View version history">
+                                    <i class="fas fa-history"></i> History
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Advisory</th>
+                        <td>
+                            <a href="{% url 'advisory-detail' poc.analysis.advisory.github_id %}">
+                                {{ poc.analysis.advisory.github_id }}
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Analysis</th>
+                        <td>
+                            <a href="{% url 'analysis-detail' poc.analysis.id %}">
+                                View Analysis
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Target OS</th>
+                        <td>{{ poc.target_os }}</td>
+                    </tr>
+                    <tr>
+                        <th>Target Language</th>
+                        <td>{{ poc.target_language_version }}</td>
+                    </tr>
+                    <tr>
+                        <th>Generated</th>
+                        <td>{{ poc.updated_at }}</td>
+                    </tr>
+                    {% if poc.completion_time %}
+                    <tr>
+                        <th>Generation Time</th>
+                        <td>{{ poc.completion_time }} seconds</td>
+                    </tr>
+                    {% endif %}
+                    {% if poc.tokens_used %}
+                    <tr>
+                        <th>Tokens Used</th>
+                        <td>{{ poc.tokens_used }}</td>
+                    </tr>
+                    <tr>
+                        <th>Estimated Cost</th>
+                        <td>${{ poc.tokens_used|calculate_cost|floatformat:4 }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>AI Model</th>
+                        <td>GPT-4o</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Additional Info Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Generation Details
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">This PoC was generated using AI based on an analysis of the advisory and its associated patches.</p>
+                
+                <p class="mb-0"><strong>Key details:</strong></p>
+                <ul class="mb-0">
+                    <li>Target: {{ poc.target_os }} with {{ poc.target_language_version }}</li>
+                    <li>Goal: {{ poc.exploitation_goal }}</li>
+                    {% if poc.use_deep_thinking %}
+                    <li>Generation method: Deep thinking (chain-of-thought reasoning)</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Feedback Card -->
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-comment"></i> Feedback
+                </h3>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'poc_feedback' poc.id %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Did this PoC work as expected?</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="worked_as_expected" value="true" id="worked_yes" {% if poc.worked_as_expected == True %}checked{% endif %}>
+                            <label class="form-check-label" for="worked_yes">Yes</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="worked_as_expected" value="false" id="worked_no" {% if poc.worked_as_expected == False %}checked{% endif %}>
+                            <label class="form-check-label" for="worked_no">No</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Effectiveness Rating (1-10)</label>
+                        <div class="rating-container">
+                            <div class="d-flex justify-content-between">
+                                {% for i in "12345678910"|make_list %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="effectiveness_score" value="{{ i }}" id="score_{{ i }}" {% if poc.effectiveness_score == i|add:"0" %}checked{% endif %}>
+                                    <label class="form-check-label" for="score_{{ i }}">{{ i }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="d-flex justify-content-between text-muted" style="font-size: 0.8rem; margin-top: 5px;">
+                                <span>Not effective</span>
+                                <span>Very effective</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="feedback" class="form-label">Additional Feedback</label>
+                        <small class="form-text text-muted d-block mb-2">
+                            Your feedback helps improve future generations. Please mention any issues with:
+                            setup instructions, code accuracy, clarity, completeness, or security concerns.
+                        </small>
+                        <textarea class="form-control" id="feedback" name="user_feedback" rows="4" placeholder="What worked well or could be improved?">{{ poc.user_feedback }}</textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Submit Feedback</button>
+                    
+                    {% if poc.template_used %}
+                    <div class="alert alert-info mt-3">
+                        <small>
+                            <i class="fas fa-info-circle"></i> This PoC was generated using a learned template ({{ poc.template_used.name }}). 
+                            Your feedback will help improve this template for future generations.
+                        </small>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+<style>
+    .hljs-ln-numbers {
+        user-select: none;
+        text-align: center;
+        color: #ccc;
+        border-right: 1px solid #CCC;
+        vertical-align: top;
+        padding-right: 8px !important;
+    }
+    
+    .hljs-ln-code {
+        padding-left: 8px !important;
+    }
+    
+    .poc-code {
+        max-height: 500px;
+        overflow: auto;
+    }
+    
+    .copy-indicator {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 5px;
+        z-index: 1000;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize syntax highlighting
+        const codeBlock = document.getElementById('poc-code');
+        
+        // Function to detect language from code
+        function detectLanguage(code) {
+            if (!code) return 'text';
+            
+            // Get the saved language from the server if available
+            const serverLang = document.getElementById('language-detected').textContent.trim().toLowerCase();
+            if (serverLang && serverLang !== 'auto-detect' && serverLang !== 'unknown') {
+                return serverLang;
+            }
+            
+            // Advanced language detection based on syntax patterns
+            const langPatterns = {
+                'php': ['<?php', '<?=', 'namespace', '->'],
+                'bash': ['#!/bin/bash', '#!/bin/sh', 'echo ', 'grep ', 'awk '],
+                'java': ['import java.', 'public class', 'public static void main', '@Override'],
+                'csharp': ['using System;', 'namespace', 'public class', 'static void Main'],
+                'jsx': ['import React', 'const [', 'export default', 'function(props)', '<Component>'],
+                'html': ['<html', '<!DOCTYPE html>', '<head', '<body'],
+                'python': ['def ', 'import ', 'class ', 'if __name__', '#!/usr/bin/env python'],
+                'javascript': ['function', 'const ', 'let ', '=>', 'document.', 'window.'],
+                'typescript': ['interface ', 'type ', 'export class', '<T>', ':string'],
+                'sql': ['SELECT', 'FROM', 'WHERE', 'INSERT INTO', 'UPDATE ', 'DELETE FROM'],
+                'c': ['#include <', 'int main(', 'return 0;', 'printf(', 'malloc('],
+                'cpp': ['#include <', 'std::', 'namespace ', 'template<', 'vector<'],
+                'go': ['package main', 'import (', 'func main()', 'fmt.', 'func ('],
+                'ruby': ['require ', 'def ', 'end', '#!/usr/bin/env ruby', 'module '],
+                'rust': ['fn main()', 'let mut', 'struct ', 'impl ', 'use std::'],
+                'swift': ['import Foundation', 'var ', 'func ', 'class ', 'extension '],
+                'kotlin': ['fun ', 'val ', 'var ', 'class ', 'package '],
+                'perl': ['#!/usr/bin/perl', 'use strict', 'my $', 'sub ', '->'],
+                'powershell': ['param(', 'Write-Host', '$', 'function ', 'Get-'],
+                'xml': ['<?xml', '</', '</>', '/>']
+            };
+            
+            code = code.toLowerCase();
+            const matches = {};
+            
+            // Count occurrences of each pattern
+            for (const [lang, patterns] of Object.entries(langPatterns)) {
+                matches[lang] = 0;
+                for (const pattern of patterns) {
+                    // Count occurrences of each pattern
+                    const regex = new RegExp(pattern.toLowerCase(), 'g');
+                    const count = (code.match(regex) || []).length;
+                    if (count > 0) {
+                        matches[lang] += count;
+                    }
+                }
+            }
+            
+            // Find the language with the most matches
+            let bestMatch = 'text';
+            let maxMatches = 0;
+            
+            for (const [lang, count] of Object.entries(matches)) {
+                if (count > maxMatches) {
+                    maxMatches = count;
+                    bestMatch = lang;
+                }
+            }
+            
+            // If we have a reasonable number of matches, use that language
+            return maxMatches > 1 ? bestMatch : 'text';
+        }
+        
+        // Detect language and update badge
+        const detectedLang = detectLanguage(codeBlock.textContent);
+        
+        // Update badge text and appearance
+        const langBadge = document.getElementById('language-detected');
+        langBadge.textContent = detectedLang !== 'text' ? detectedLang : langBadge.textContent;
+        langBadge.classList.remove('bg-secondary');
+        
+        // Color-code the badge based on language
+        const langColors = {
+            'python': 'bg-primary',
+            'javascript': 'bg-warning',
+            'typescript': 'bg-info',
+            'java': 'bg-danger',
+            'php': 'bg-secondary',
+            'ruby': 'bg-danger',
+            'go': 'bg-info',
+            'rust': 'bg-dark',
+            'c': 'bg-secondary',
+            'cpp': 'bg-secondary'
+        };
+        
+        const badgeClass = langColors[detectedLang] || 'bg-success';
+        langBadge.classList.add(badgeClass);
+        
+        // Set the language class for proper highlighting
+        codeBlock.classList.add(detectedLang);
+        
+        // Apply syntax highlighting
+        hljs.highlightAll();
+        hljs.initLineNumbersOnLoad();
+        
+        // Toggle line numbers
+        const toggleLineNumbersBtn = document.getElementById('toggle-line-numbers-btn');
+        if (toggleLineNumbersBtn) {
+            toggleLineNumbersBtn.addEventListener('click', () => {
+                const lineNumbers = document.querySelector('.hljs-ln-numbers');
+                if (lineNumbers) {
+                    // Line numbers exist, so hide them
+                    document.querySelectorAll('.hljs-ln-numbers').forEach(el => {
+                        el.style.display = el.style.display === 'none' ? '' : 'none';
+                    });
+                    document.querySelectorAll('.hljs-ln-code').forEach(el => {
+                        el.style.paddingLeft = el.style.paddingLeft === '0px' ? '8px' : '0px';
+                    });
+                    
+                    toggleLineNumbersBtn.innerHTML = lineNumbers.style.display === 'none' ? 
+                        '<i class="fas fa-list-ol"></i> Show Line Numbers' : 
+                        '<i class="fas fa-list-ol"></i> Hide Line Numbers';
+                } else {
+                    // Re-initialize line numbers if they weren't loaded initially
+                    hljs.initLineNumbersOnLoad();
+                    toggleLineNumbersBtn.innerHTML = '<i class="fas fa-list-ol"></i> Hide Line Numbers';
+                }
+            });
+        }
+        
+        // Code copy functionality
+        const copyCodeBtn = document.getElementById('copy-code-btn');
+        if (copyCodeBtn) {
+            copyCodeBtn.addEventListener('click', () => {
+                const textArea = document.createElement('textarea');
+                textArea.value = codeBlock.textContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                // Create and show the copy indicator
+                const indicator = document.createElement('div');
+                indicator.classList.add('copy-indicator');
+                indicator.innerHTML = '<i class="fas fa-check"></i> Code copied to clipboard';
+                document.body.appendChild(indicator);
+                
+                // Provide feedback on the button
+                copyCodeBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
+                
+                // Remove the indicators after a delay
+                setTimeout(() => {
+                    copyCodeBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                    document.body.removeChild(indicator);
+                }, 2000);
+            });
+        }
+    });
+</script>
+{% endblock %}

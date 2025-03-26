@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}PoC Generation Status | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-spinner"></i> PoC Generation Status
+                </h3>
+            </div>
+            <div class="card-body">
+                <!-- Status information -->
+                <div class="mb-4">
+                    <h4>Status: <span id="status-badge" class="badge bg-warning">{{ poc.get_status_display }}</span></h4>
+                    <div class="progress mt-3" style="height: 20px;">
+                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Request details -->
+                <div class="mb-4">
+                    <h5>Request Details</h5>
+                    <table class="table">
+                        <tr>
+                            <th width="30%">Advisory</th>
+                            <td>{{ poc.analysis.advisory.github_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Target OS</th>
+                            <td>{{ poc.target_os }}</td>
+                        </tr>
+                        <tr>
+                            <th>Target Language</th>
+                            <td>{{ poc.target_language_version }}</td>
+                        </tr>
+                        <tr>
+                            <th>Exploitation Goal</th>
+                            <td>{{ poc.exploitation_goal }}</td>
+                        </tr>
+                        <tr>
+                            <th>Deep Thinking Mode</th>
+                            <td>{% if poc.use_deep_thinking %}Enabled{% else %}Disabled{% endif %}</td>
+                        </tr>
+                        <tr>
+                            <th>Requested</th>
+                            <td>{{ poc.created_at }}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="text-center" id="loading-indicator">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Generating PoC using OpenAI... This may take several minutes.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <span id="status-message">Analyzing vulnerability details and constructing prompts...</span>
+                    </div>
+                </div>
+                
+                <div id="completion-info" style="display: none;" class="mb-4">
+                    <h5>Generation Information</h5>
+                    <table class="table">
+                        <tr>
+                            <th width="30%">Completion Time</th>
+                            <td><span id="completion-time">0</span> seconds</td>
+                        </tr>
+                        <tr>
+                            <th>Tokens Used</th>
+                            <td><span id="tokens-used">0</span></td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="text-center mt-4" id="completion-actions" style="display: none;">
+                    <a href="{% url 'view_poc' poc.id %}" class="btn btn-success">
+                        <i class="fas fa-eye"></i> View Generated PoC
+                    </a>
+                </div>
+                
+                <div id="error-message" class="alert alert-danger mt-4" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <span id="error-text">Generation failed. Please try again or contact support.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Status polling function
+    function checkStatus() {
+        fetch('{% url "poc_status_api" poc.id %}')
+            .then(response => response.json())
+            .then(data => {
+                // Update status badge
+                const statusBadge = document.getElementById('status-badge');
+                statusBadge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                
+                // Update progress bar
+                const progressBar = document.getElementById('progress-bar');
+                const statusMessage = document.getElementById('status-message');
+                
+                if (data.status === 'requested') {
+                    statusBadge.className = 'badge bg-secondary';
+                    progressBar.style.width = '10%';
+                    statusMessage.textContent = 'Initializing OpenAI request and analyzing vulnerability details...';
+                } else if (data.status === 'processing') {
+                    statusBadge.className = 'badge bg-warning';
+                    progressBar.style.width = '50%';
+                    statusMessage.textContent = 'OpenAI is generating your PoC. This may take 1-3 minutes depending on complexity...';
+                } else if (data.status === 'completed') {
+                    statusBadge.className = 'badge bg-success';
+                    progressBar.style.width = '100%';
+                    progressBar.classList.remove('progress-bar-animated');
+                    
+                    // Hide loading indicator
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    
+                    // Show completion info
+                    const completionInfo = document.getElementById('completion-info');
+                    completionInfo.style.display = 'block';
+                    
+                    // Update completion info
+                    if (data.completion_time) {
+                        document.getElementById('completion-time').textContent = data.completion_time;
+                    }
+                    
+                    if (data.tokens_used) {
+                        document.getElementById('tokens-used').textContent = data.tokens_used;
+                    }
+                    
+                    // Show completion actions
+                    document.getElementById('completion-actions').style.display = 'block';
+                } else if (data.status === 'failed') {
+                    statusBadge.className = 'badge bg-danger';
+                    progressBar.style.width = '100%';
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                    
+                    // Hide loading indicator
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    
+                    // Show error message
+                    const errorMessage = document.getElementById('error-message');
+                    errorMessage.style.display = 'block';
+                    
+                    if (data.error) {
+                        document.getElementById('error-text').textContent = data.error;
+                    }
+                }
+                
+                // Continue polling if not complete
+                if (data.status === 'requested' || data.status === 'processing') {
+                    setTimeout(checkStatus, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking status:', error);
+                // Keep trying even if there's an error
+                setTimeout(checkStatus, 5000);
+            });
+    }
+    
+    // Start polling when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        checkStatus();
+    });
+</script>
+{% endblock %}

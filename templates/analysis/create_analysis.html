@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Create Analysis | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mb-4">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-chart-line"></i> Create Analysis
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h4>Advisory Information</h4>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5>{{ advisory.github_id }}</h5>
+                                    <span class="severity-badge severity-{{ advisory.severity }}">{{ advisory.severity }}</span>
+                                </div>
+                                <p class="mb-1"><strong>{{ advisory.title }}</strong></p>
+                                <p class="text-muted small mb-2">
+                                    {% if advisory.vuln_type %}{{ advisory.vuln_type }} | {% endif %}
+                                    {% if advisory.cve_id %}{{ advisory.cve_id }} | {% endif %}
+                                    {% if advisory.published_date %}Published: {{ advisory.published_date|date:"M d, Y" }}{% endif %}
+                                </p>
+                                <p class="mb-0">{{ advisory.description|truncatewords:50 }}</p>
+                                <a href="{{ advisory.url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                                    <i class="fas fa-external-link-alt"></i> View on GitHub
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if commits %}
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h4>Associated Commits ({{ commits|length }})</h4>
+                        <div class="list-group">
+                            {% for commit in commits %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ commit.repo_name }}</h6>
+                                    <small>{{ commit.fetch_date|date:"M d, Y" }}</small>
+                                </div>
+                                <p class="mb-1"><code>{{ commit.short_hash }}</code></p>
+                                <small>
+                                    <span class="text-success">+{{ commit.lines_added }}</span> / 
+                                    <span class="text-danger">-{{ commit.lines_removed }}</span> lines in
+                                    {{ commit.files_changed }} file(s)
+                                </small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> No commits found for this advisory. Analysis results may be limited.
+                </div>
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <h4>Analysis Options</h4>
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> This will analyze the advisory and any associated commits using OpenAI to assess vulnerability details and PoC feasibility.
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label for="model">AI Model</label>
+                                <select name="model" id="model" class="form-select">
+                                    <option value="gpt-4o">GPT-4o (Default)</option>
+                                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Faster, less accurate)</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    GPT-4o provides the most comprehensive analysis but may take longer.
+                                </small>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" name="include_all_commits" id="include_all_commits" checked>
+                                <label class="form-check-label" for="include_all_commits">
+                                    Include all commits in analysis
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Uncheck to limit analysis to the advisory description only. Recommended for advisories with very large patches.
+                                </small>
+                            </div>
+                            
+                            <!-- Progress Bar (initially hidden) -->
+                            <div id="analysis-progress-container" class="mb-4" style="display: none;">
+                                <h5 class="mb-2">Analysis in Progress...</h5>
+                                <div class="progress" style="height: 25px;">
+                                    <div id="analysis-progress-bar" 
+                                         class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" 
+                                         aria-valuenow="0" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100" 
+                                         style="width: 0%">
+                                        <span id="progress-text">Initializing...</span>
+                                    </div>
+                                </div>
+                                <p id="progress-details" class="text-muted small mt-2">
+                                    Starting analysis of {{ advisory.github_id }}...
+                                </p>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" id="start-analysis-btn" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Start Analysis
+                                </button>
+                                <a href="{% url 'advisory-detail' advisory.github_id %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left"></i> Back to Advisory
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get form and progress elements
+        const analysisForm = document.querySelector('form');
+        const progressContainer = document.getElementById('analysis-progress-container');
+        const progressBar = document.getElementById('analysis-progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressDetails = document.getElementById('progress-details');
+        const startButton = document.getElementById('start-analysis-btn');
+        
+        // Store the phases of analysis
+        const phases = [
+            { percent: 10, text: "Initializing analysis...", details: "Setting up the analysis environment" },
+            { percent: 20, text: "Fetching advisory data...", details: "Retrieving advisory information from the database" },
+            { percent: 30, text: "Extracting commit information...", details: "Analyzing patch data from repository commits" },
+            { percent: 40, text: "Preparing analysis prompt...", details: "Structuring data for AI processing" },
+            { percent: 50, text: "Analyzing vulnerability type...", details: "Determining vulnerability classification" },
+            { percent: 60, text: "Evaluating patch effectiveness...", details: "Examining how well the patches address the vulnerability" },
+            { percent: 70, text: "Assessing PoC feasibility...", details: "Determining the difficulty of creating a proof of concept" },
+            { percent: 80, text: "Generating detailed report...", details: "Creating comprehensive markdown and HTML reports" },
+            { percent: 90, text: "Finalizing analysis...", details: "Saving results to database" },
+            { percent: 95, text: "Almost complete...", details: "Preparing to redirect to results page" }
+        ];
+        
+        // Add event listener to the form submission
+        if (analysisForm) {
+            analysisForm.addEventListener('submit', function(e) {
+                // Show progress bar immediately
+                if (progressContainer) {
+                    progressContainer.style.display = 'block';
+                }
+                
+                // Disable the start button
+                if (startButton) {
+                    startButton.disabled = true;
+                    startButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analysis Running...';
+                }
+                
+                // Start the progress animation
+                let phaseIndex = 0;
+                
+                function updateProgress() {
+                    if (phaseIndex < phases.length) {
+                        const phase = phases[phaseIndex];
+                        
+                        // Update progress bar
+                        if (progressBar && progressText && progressDetails) {
+                            progressBar.style.width = phase.percent + '%';
+                            progressBar.setAttribute('aria-valuenow', phase.percent);
+                            progressText.textContent = phase.text;
+                            progressDetails.textContent = phase.details;
+                        }
+                        
+                        // Move to next phase after a delay (between 2-5 seconds randomly)
+                        const delay = Math.floor(Math.random() * 3000) + 2000;
+                        phaseIndex++;
+                        
+                        // If not the last phase, schedule the next update
+                        if (phaseIndex < phases.length) {
+                            setTimeout(updateProgress, delay);
+                        }
+                    }
+                }
+                
+                // Start progress updates
+                setTimeout(updateProgress, 500); // Start after a small delay to ensure form submission initiates
+                
+                // Allow the form to submit normally
+                return true;
+            });
+            
+            console.log("Analysis form event listener set up successfully");
+        } else {
+            console.error("Analysis form not found");
+        }
+    });
+</script>
+{% endblock %}
+
+{% endblock content %}

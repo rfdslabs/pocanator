@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Import Advisories | Plurium POCanator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">
+                    <i class="fas fa-cloud-download-alt"></i> 
+                    Batch Import GitHub Advisories
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Automatically import multiple GitHub security advisories from search results. 
+                    This tool will search GitHub's advisory database and import matching advisories.
+                </p>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Currently, there are <strong>{{ total_advisories }}</strong> advisories in the database.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="query">Search Query</label>
+                        <input type="text" class="form-control" id="query" name="query" 
+                               value="{{ query|default:'rce type:reviewed' }}"
+                               placeholder="rce type:reviewed">
+                        <small class="form-text text-muted">
+                            Search for vulnerabilities by type, e.g., 'rce type:reviewed', 'xss type:reviewed', etc.
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="num_pages">Number of Pages to Import</label>
+                        <input type="number" class="form-control" id="num_pages" name="num_pages" 
+                               value="{{ num_pages|default:1 }}" min="1" max="10">
+                        <small class="form-text text-muted">
+                            Each page contains ~20-25 advisories. Limit: 10 pages per batch.
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="fas fa-download"></i> Start Batch Import
+                    </button>
+                    <a href="{% url 'advisory-list' %}" class="btn btn-secondary mt-3">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </a>
+                </form>
+                
+                {% if results %}
+                <hr>
+                <div class="mt-4">
+                    <h4>Import Results</h4>
+                    
+                    <div class="alert alert-{% if results.advisories_imported > 0 %}success{% else %}warning{% endif %}">
+                        <h5>Summary:</h5>
+                        <ul>
+                            <li>Pages Scanned: {{ results.total_pages }}</li>
+                            <li>Total Links Found: {{ results.total_links_found }}</li>
+                            <li>Advisories Imported: {{ results.advisories_imported }}</li>
+                            <li>Advisories Already Existing: {{ results.advisories_existing }}</li>
+                            <li>Advisories Failed: {{ results.advisories_failed }}</li>
+                        </ul>
+                    </div>
+                    
+                    {% if results.imported_ids %}
+                    <div class="card mt-3">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Successfully Imported Advisories</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group">
+                                {% for id in results.imported_ids %}
+                                <li class="list-group-item">
+                                    <a href="{% url 'advisory-detail' github_id=id %}">
+                                        {{ id }}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="card-footer bg-light">
+                <h5>Tips:</h5>
+                <ul>
+                    <li>Use <code>type:reviewed</code> to get only the verified advisories.</li>
+                    <li>Common vulnerability types: <code>rce</code>, <code>xss</code>, <code>sqli</code>, <code>ssrf</code>, etc.</li>
+                    <li>Be patient during import, as the system respects rate limits to avoid GitHub API throttling.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
