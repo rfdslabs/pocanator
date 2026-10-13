@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Sprint 1 — Trustworthy analysis + readable diffs
+
+#### Security
+- HTML-escape all diff content in template filters, closing a stored-XSS hole
+  where patch text could inject markup.
+- Remove the OpenAI client's subprocess/eval fallback that wrote the API key to
+  a temp file and executed generated code.
+
+#### Analysis
+- Move analysis onto the modern OpenAI SDK (1.x) with JSON-object output and
+  replace brittle markdown regex-scraping with `json.loads`; scores are clamped
+  to 0–10 and malformed responses fail gracefully.
+- Add `severity`, `cwe`, `confidence`, `tokens_used`, and `estimated_cost` to
+  the `Analysis` model; surface them (plus model and a Regenerate action) on the
+  analysis detail page.
+
+#### Diff UX
+- New GitHub-style unified diff viewer: line-number gutter, Pygments syntax
+  highlighting, add/remove tinting, per-file accordion on the commit page, and a
+  binary-file state. Retires the ad-hoc raw/enhanced/word-diff rendering.
+
 ### Changed
 - **Renamed the project to POCanator.** The Django settings package
   `plurium_pocanator/` is now `pocanator/`, and all module references
