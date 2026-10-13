@@ -1,6 +1,6 @@
-# ReportGPT Web - PoC Generation Documentation
+# POCanator - PoC Generation Documentation
 
-This directory contains comprehensive documentation for the Proof of Concept (PoC) Generation System that has been implemented in ReportGPT Web.
+This directory contains comprehensive documentation for the Proof of Concept (PoC) Generation System that has been implemented in POCanator.
 
 ## Documentation Files
 

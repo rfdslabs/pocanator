@@ -22,7 +22,7 @@ Traceback (most recent call last):
 ImportError: Couldn't import Django. Are you sure it's installed?
 ```
 
-**Root Cause**: The Dockerfile was incorrectly configured for a standalone Python script (reportgpt.py) rather than a Django application, causing Django dependencies to be unavailable in the container environment.
+**Root Cause**: The Dockerfile was incorrectly configured for a standalone Python script (pocanator.py) rather than a Django application, causing Django dependencies to be unavailable in the container environment.
 
 **Solution**: 
 - Updated Dockerfile to properly install Django dependencies
@@ -121,7 +121,7 @@ To resolve these issues, several improvements were made to the Docker configurat
    ENTRYPOINT ["/app/entrypoint.sh"]
    
    # Default command with increased timeout
-   CMD ["gunicorn", "reportgpt_web.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "300"]
+   CMD ["gunicorn", "pocanator.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "300"]
    ```
 
 2. **docker-compose.yml Updates**:
@@ -143,7 +143,7 @@ To resolve these issues, several improvements were made to the Docker configurat
          - DJANGO_SUPERUSER_PASSWORD=admin
          - DEBUG=True
        command: >
-         gunicorn reportgpt_web.wsgi:application 
+         gunicorn pocanator.wsgi:application 
          --bind 0.0.0.0:8000 
          --timeout 300
          --workers 2

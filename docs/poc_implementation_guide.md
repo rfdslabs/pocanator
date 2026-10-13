@@ -344,7 +344,7 @@ urlpatterns = [
 ```html
 {% extends "base.html" %}
 
-{% block title %}Configure PoC | ReportGPT Web{% endblock %}
+{% block title %}Configure PoC | POCanator{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -449,7 +449,7 @@ urlpatterns = [
 ```html
 {% extends "base.html" %}
 
-{% block title %}PoC Generation Status | ReportGPT Web{% endblock %}
+{% block title %}PoC Generation Status | POCanator{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -581,7 +581,7 @@ urlpatterns = [
 {% extends "base.html" %}
 {% load analysis_extras %}
 
-{% block title %}Proof of Concept | ReportGPT Web{% endblock %}
+{% block title %}Proof of Concept | POCanator{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -789,7 +789,7 @@ Add a "Generate PoC" button to the analysis detail page in `templates/analysis/a
 
 ### Step 8: Update Project URLs
 
-Add the PoC URLs to the main project's URL configuration in `reportgpt_web/urls.py`:
+Add the PoC URLs to the main project's URL configuration in `pocanator/urls.py`:
 
 ```python
 # Add to the urlpatterns list:

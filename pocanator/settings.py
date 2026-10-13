@@ -1,5 +1,5 @@
 """
-Django settings for reportgpt_web project.
+Django settings for POCanator project.
 """
 
 import os
@@ -53,7 +53,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'reportgpt_web.urls'
+ROOT_URLCONF = 'pocanator.urls'
 
 TEMPLATES = [
     {
@@ -71,7 +71,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'reportgpt_web.wsgi.application'
+WSGI_APPLICATION = 'pocanator.wsgi.application'
 
 # Database
 DATABASES = {
@@ -79,6 +79,16 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'data', 'db.sqlite3'),
     }
+}
+
+# Skip any migration issues for demo purposes
+# Comment this out when migrations are properly set up
+MIGRATION_MODULES = {
+    'advisories': None,
+    'analysis': None,
+    'patches': None,
+    'pocs': None,
+    'users': None,
 }
 
 # Password validation

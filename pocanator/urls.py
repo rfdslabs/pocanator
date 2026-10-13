@@ -1,5 +1,5 @@
 """
-URL configuration for reportgpt_web project.
+URL configuration for POCanator project.
 """
 from django.contrib import admin
 from django.urls import path, include

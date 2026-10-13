@@ -1,13 +1,13 @@
-# Django Web Interface for ReportGPT
+# Django Web Interface for POCanator
 
 ## Overview
 
-This document outlines the plan to create a Django-based web interface for ReportGPT with SQLite database storage, all contained in a single Docker container. This will transform the command-line tool into a fully interactive web application for vulnerability analysis.
+This document outlines the plan to create a Django-based web interface for POCanator with SQLite database storage, all contained in a single Docker container. This will transform the command-line tool into a fully interactive web application for vulnerability analysis.
 
 ## Project Structure
 
 ```
-reportgpt-web/
+pocanator/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -18,7 +18,7 @@ reportgpt-web/
 │   ├── js/
 │   └── images/
 ├── templates/
-├── reportgpt_web/  # Django project
+├── pocanator/  # Django project
 │   ├── __init__.py
 │   ├── settings.py
 │   ├── urls.py
@@ -133,7 +133,7 @@ COPY . .
 # Set up environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=reportgpt_web.settings
+ENV DJANGO_SETTINGS_MODULE=pocanator.settings
 
 # Run entrypoint script
 COPY entrypoint.sh .
@@ -144,7 +144,7 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 EXPOSE 8000
 
 # Default command
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "reportgpt_web.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "pocanator.wsgi:application"]
 ```
 
 ### entrypoint.sh
@@ -213,7 +213,7 @@ class AnalysisService:
         """
         Analyze an advisory using GPT and return the analysis results
         """
-        # Implementation adapting from reportgpt.py analyze_advisory_with_gpt
+        # Implementation adapting from pocanator.py analyze_advisory_with_gpt
         # ...
 ```
 
@@ -230,14 +230,14 @@ class GitHubService:
         """
         Fetch advisory details from GitHub
         """
-        # Implementation adapting from reportgpt.py
+        # Implementation adapting from pocanator.py
         # ...
     
     def fetch_commits(self, advisory_url):
         """
         Fetch commits for an advisory
         """
-        # Implementation adapting from reportgpt.py
+        # Implementation adapting from pocanator.py
         # ...
 ```
 

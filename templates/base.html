@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Plurium POCanator{% endblock %}</title>
+    <title>{% block title %}POCanator{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -272,7 +272,7 @@
     <!-- Navigation bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'home' %}">Plurium <span class="text-info">POCanator</span></a>
+            <a class="navbar-brand" href="{% url 'home' %}"><span class="text-info">POCanator</span></a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -353,7 +353,7 @@
     <div class="container my-4 main-content">
         {% block content %}
         <div class="text-center">
-            <h1>Welcome to Plurium POCanator</h1>
+            <h1>Welcome to POCanator</h1>
             <p class="lead">A comprehensive platform for security advisory analysis and PoC generation.</p>
         </div>
         {% endblock %}
@@ -364,7 +364,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <p class="mb-0">Plurium POCanator - Vulnerability PoC Generation Platform</p>
+                    <p class="mb-0">POCanator - Vulnerability PoC Generation Platform</p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <p class="mb-0">&copy; {% now "Y" %} All rights reserved.</p>

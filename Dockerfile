@@ -41,7 +41,7 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 # Set environment variables
-ENV DJANGO_SETTINGS_MODULE=plurium_pocanator.settings
+ENV DJANGO_SETTINGS_MODULE=pocanator.settings
 
 # Make entrypoint script executable
 RUN chmod +x /app/entrypoint.sh
@@ -53,4 +53,4 @@ EXPOSE 8000
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default command
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "plurium_pocanator.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "pocanator.wsgi:application"]

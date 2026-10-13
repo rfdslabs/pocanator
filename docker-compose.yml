@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: plurium-pocanator:latest
-    container_name: plurium-pocanator
+    image: pocanator:latest
+    container_name: pocanator
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media

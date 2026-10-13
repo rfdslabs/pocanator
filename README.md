@@ -1,148 +1,151 @@
-# ReportGPT - GitHub Security Advisory Analysis and PoC Generation Platform
+# POCanator
 
-ReportGPT is a comprehensive platform for analyzing GitHub security advisories, extracting commits, generating vulnerability reports, and creating educational proof-of-concept code examples. It leverages OpenAI to analyze vulnerabilities, understand patches, and generate security educational content.
+**POCanator** is a platform for analyzing GitHub Security Advisories, extracting
+the commits that fix them, and generating **educational** proof-of-concept (PoC)
+material. It uses OpenAI models to explain vulnerabilities, assess patches, and
+produce security-education content for defenders and researchers.
+
+It ships as a **Django web application** plus an optional **standalone CLI**.
+
+> ⚠️ **For authorized security research, defensive security, and education
+> only.** Read [SECURITY.md](SECURITY.md) before use. You are responsible for
+> using this tool lawfully and only against systems you own or are explicitly
+> authorized to test.
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ## Features
 
-- Fetch GitHub security advisories based on search queries
-- Extract commit information associated with security advisories
-- Generate interactive HTML reports of advisories with commits
-- Filter advisories to focus only on those with commits (more useful for PoC generation)
-- Analyze individual advisories with OpenAI to determine vulnerability type, severity, and PoC feasibility
-- Generate detailed advisory reports with PoC feasibility assessments
-- Create educational proof-of-concept code examples with advanced prompt engineering
-- Provide framework-specific security best practices and guidance
+- Fetch GitHub Security Advisories by search query
+- Extract the commits/patches associated with each advisory
+- Generate interactive HTML reports of advisories and their commits
+- Filter to advisories that have fixing commits (richer input for analysis)
+- Analyze advisories with OpenAI: vulnerability type, severity, patch
+  effectiveness, and PoC feasibility
+- Generate **educational** PoC examples with multi-stage prompting
+- Framework-specific secure-coding guidance (Django, Node.js, and more)
 
-### Enhanced PoC Generation Features
+### PoC generation approach
 
-The PoC generation system uses advanced prompt engineering techniques:
+- **Multi-stage prompting** — vulnerability understanding → exploitation design
+  → implementation → documentation
+- **Example-guided generation** — concrete patterns for RCE, XSS, and SQLi
+- **Framework-specific guidance** — secure alternatives shown alongside
+  vulnerable patterns
 
-1. **Multi-stage Prompting**: Breaks down PoC generation into distinct stages:
-   - Vulnerability Understanding
-   - Exploitation Design
-   - Code Implementation
-   - Documentation
+## Requirements
 
-2. **Example-guided Generation**: Includes concrete code examples for different vulnerability types:
-   - Remote Code Execution (RCE) examples
-   - Cross-Site Scripting (XSS) examples
-   - SQL Injection (SQLI) examples
+- Python **3.10** (pinned deps, notably `lxml==4.9.3`, build cleanly on 3.10)
+- An OpenAI API key (for analysis / PoC features)
+- Optionally, Docker + Docker Compose
 
-3. **Framework-specific Security Guidance**: Provides specialized guidance for:
-   - Django framework security
-   - Node.js framework security
-   - And other popular frameworks
+## Quick start (web platform)
 
-## Installation
+### Local
 
-### Command-line Tool (Original)
+```bash
+python3.10 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
-1. Clone the repository
-2. Install the required packages:
-   ```
-   pip install requests beautifulsoup4 lxml openai python-dotenv
-   ```
-3. Create a `.env` file with your OpenAI API key (for analysis functionality):
-   ```
-   openaikey=your_openai_api_key_here
-   ```
+cp .env.example .env
+#   edit .env: set OPENAI_API_KEY, SECRET_KEY, etc.
 
-### Full Web Platform (Docker)
-
-1. Clone the repository
-2. Create and configure the environment file:
-   ```
-   cp .env.example .env
-   # Edit .env with your configurations including OpenAI API key
-   ```
-3. Start the application with Docker Compose:
-   ```
-   docker-compose up -d
-   ```
-4. Access the application at http://localhost:8000
-
-## Usage
-
-### Command-line Tool
-
-#### Generate HTML Report of Advisories
-
-```
-python reportgpt.py [--pages N] [--only-with-commits] [--query "custom search query"]
+python manage.py migrate --run-syncdb
+python manage.py createsuperuser   # or use the helper in start_local.sh
+python manage.py runserver
 ```
 
-Options:
-- `--pages N`: Number of GitHub advisory pages to fetch (1-50)
-- `--only-with-commits`: Only process advisories that have associated commits
-- `--query`: Custom search query to use instead of the default "rce type:reviewed rce"
+Visit http://127.0.0.1:8000/. The provided `start_local.sh` automates the steps
+above (and seeds an `admin`/`admin` superuser for local dev — change this).
 
-If run without arguments, you'll be prompted for the number of pages to fetch and whether to filter by commits.
+### Docker
 
-#### Analyze Individual Advisory with OpenAI
-
-```
-python reportgpt.py --gpthack https://github.com/advisories/GHSA-xxxx-xxxx-xxxx
+```bash
+cp .env.example .env   # edit with your configuration
+docker compose up -d --build
 ```
 
-This will:
-1. Fetch the advisory information
-2. Check for related commits
-3. Fetch patch diffs for up to 3 commits
-4. Send the information to OpenAI for analysis
-5. Generate a detailed report including:
-   - Vulnerability explanation
-   - Patch analysis
-   - Impact summary
-   - Patch effectiveness score
-   - PoC feasibility analysis
-   - Summary table with key metrics
+Then open http://localhost:8000/.
 
-### Web Platform
+## Web platform overview
 
-The web platform provides a comprehensive UI for managing advisories, analyses, and educational PoC generation:
+- **Advisory management** — import advisories from GitHub, browse, search, and
+  view details.
+- **Analysis** — generate AI-powered analyses with patch breakdowns and impact
+  summaries.
+- **Educational PoC generation** — request annotated code examples for a target
+  language/framework, with explanations of the vulnerable pattern and secure
+  fix.
+- **Best practices** — framework-specific secure-coding guidance.
 
-1. **Advisory Management**
-   - Import advisories from GitHub
-   - Browse and search advisories
-   - View detailed advisory information
+## Standalone CLI
 
-2. **Analysis Creation**
-   - Generate AI-powered analyses of vulnerabilities
-   - View detailed reports with patch analysis
-   - Understand vulnerability mechanics and impact
+The `pocanator.py` script provides the original command-line workflow.
 
-3. **Educational PoC Generation**
-   - Request educational code examples for vulnerabilities
-   - Specify target environment, language, and framework
-   - Receive detailed explanations of security concepts
-   - Learn about vulnerable code patterns and secure alternatives
+> The CLI reads its OpenAI key from the **`openaikey`** environment variable
+> (the web app uses `OPENAI_API_KEY`). Set `openaikey` in your `.env` when using
+> the CLI.
 
-4. **Security Best Practices**
-   - Access framework-specific security guidance
-   - Learn about proper input validation, secure APIs, and more
-   - Understand security principles with concrete examples
+Generate an HTML report of advisories:
 
-## Why Filter by Commits?
-
-Filtering advisories by commits is particularly useful when:
-
-1. Generating PoCs: Advisories with commits provide concrete code changes that fix vulnerabilities, giving valuable insight for PoC development
-2. Training AI models: Having both vulnerability descriptions and patch diffs creates better training data
-3. Research efficiency: Focusing only on advisories with available code changes can save significant time
-4. Better analysis: OpenAI can provide more accurate and useful analysis when it has access to patch information
-
-## Output Files
-
-- `github_advisory_report.html`: Interactive HTML report with all fetched advisories and their commits
-- `GHSA-xxxx-xxxx-xxxx_analysis.md`: Markdown file with detailed analysis (when using --gpthack)
-
-## Example
-
-```
-python reportgpt.py --pages 5 --only-with-commits --query "sql injection type:reviewed"
+```bash
+python pocanator.py [--pages N] [--only-with-commits] [--query "search query"]
 ```
 
-This will:
-1. Fetch 5 pages of GitHub security advisories related to SQL injection
-2. Filter to only include advisories with commits
-3. Generate an HTML report with all discovered advisories and their commits
+- `--pages N` — number of advisory pages to fetch (1–50)
+- `--only-with-commits` — only advisories that have fixing commits
+- `--query` — custom search (default: `rce type:reviewed`)
+
+Analyze a single advisory with OpenAI:
+
+```bash
+python pocanator.py --gpthack https://github.com/advisories/GHSA-xxxx-xxxx-xxxx
+```
+
+This fetches the advisory and related commits, retrieves up to 3 patch diffs,
+and produces a report covering the vulnerability explanation, patch analysis,
+impact, a patch-effectiveness score, PoC feasibility, and a metrics table.
+
+Example:
+
+```bash
+python pocanator.py --pages 5 --only-with-commits --query "sql injection type:reviewed"
+```
+
+### CLI output files
+
+- `github_advisory_report.html` — interactive report of fetched advisories
+- `GHSA-xxxx-xxxx-xxxx_analysis.md` — analysis written when using `--gpthack`
+
+## Configuration
+
+Copy `.env.example` to `.env` and set the values. Key variables:
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `SECRET_KEY` | web | Django secret key (set a strong value) |
+| `DEBUG` | web | `True` for local dev; set `False` in production |
+| `ALLOWED_HOSTS` | web | Comma-separated hostnames |
+| `OPENAI_API_KEY` | web | OpenAI key for analysis / PoC generation |
+| `openaikey` | CLI | OpenAI key for `pocanator.py` |
+| `GITHUB_TOKEN` | both | Optional, raises GitHub rate limits |
+
+See `pocanator/settings.py` for the full list (model selection, token limits,
+proxy settings, etc.).
+
+## Documentation
+
+Additional design and implementation notes live in [`docs/`](docs/), including
+the PoC generation overview, data models, and the Django setup guide.
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Please also
+read the [Code of Conduct](CODE_OF_CONDUCT.md) and the responsible-use policy in
+[SECURITY.md](SECURITY.md).
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for
+attribution.
