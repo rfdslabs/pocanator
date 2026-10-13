@@ -1,6 +1,7 @@
 """
-Services for analyzing vulnerabilities using OpenAI API.
+Services for analyzing vulnerabilities using pluggable LLM providers.
 """
+import hashlib
 import logging
 import re
 import time
@@ -10,29 +11,45 @@ from django.utils import timezone
 from apps.advisories.models import Advisory, Commit
 from .models import Analysis
 from apps.users.models import APIUsage
-from .openai_compat import OpenAIClient
+from .providers import (
+    DEFAULT_MODEL, UnknownModel, fallbacks_for, get_provider,
+    resolve_provider_for_model,
+)
 
 logger = logging.getLogger(__name__)
 
+# Bump when the system prompt or analysis schema changes so cached results for
+# the old prompt are not reused (the fingerprint includes this).
+PROMPT_VERSION = "p1-2026-10-13"
+
+
 class AnalysisService:
-    """Service for analyzing vulnerabilities using OpenAI API"""
-    
+    """Analyze advisories through a model-selected LLM provider."""
+
     def __init__(self, api_key=None, user=None):
-        self.api_key = api_key or settings.OPENAI_API_KEY
+        # The key is resolved by the caller for the chosen model's provider.
+        # When None, each provider falls back to its own env var.
+        self.api_key = api_key
         self.user = user
-        self.openai_client = None
-        self.setup_client()
-    
-    def setup_client(self):
-        """Initialize the OpenAI client"""
-        try:
-            self.openai_client = OpenAIClient(api_key=self.api_key)
-            logger.info("OpenAI compatibility client initialized successfully")
-        except Exception as e:
-            logger.error(f"Error initializing OpenAI compatibility client: {e}")
-            self.openai_client = None
-    
-    def analyze_advisory(self, advisory, model="gpt-4o", save_report=True):
+        self._providers = {}  # provider-key -> LLMProvider instance (per-service cache)
+
+    def _get_provider(self, model):
+        """Return (and cache) the provider instance serving ``model``."""
+        key = resolve_provider_for_model(model)
+        if key not in self._providers:
+            self._providers[key] = get_provider(model, api_key=self.api_key)
+        return self._providers[key]
+
+    @staticmethod
+    def _fingerprint(provider, model, system_prompt, prompt):
+        """Content-address a request so identical inputs reuse a stored result."""
+        h = hashlib.sha256()
+        for part in (PROMPT_VERSION, provider, model, system_prompt, prompt):
+            h.update(part.encode("utf-8"))
+            h.update(b"\x00")
+        return h.hexdigest()
+
+    def analyze_advisory(self, advisory, model=None, save_report=True, use_cache=True):
         """
         Analyze an advisory using GPT and return the analysis results
         
@@ -44,23 +61,20 @@ class AnalysisService:
         Returns:
             Analysis object or None if analysis failed
         """
-        if not self.openai_client:
-            logger.error("OpenAI client not initialized")
-            return None
-        
         if not advisory:
             logger.error("No advisory provided for analysis")
             return None
-            
-        # Define fallback model order
-        models = [model]  # Start with requested model
-        if model == "gpt-4o":
-            # Define fallbacks for gpt-4o
-            models.extend(["gpt-4-turbo", "gpt-3.5-turbo"])
-        elif model == "gpt-4-turbo":
-            # Define fallbacks for gpt-4-turbo
-            models.extend(["gpt-3.5-turbo"])
-        
+
+        model = model or DEFAULT_MODEL
+        try:
+            provider_key = resolve_provider_for_model(model)
+        except UnknownModel as exc:
+            logger.error("Cannot analyze with unknown model %r: %s", model, exc)
+            return None
+
+        # In-provider fallback order (never crosses providers / keys).
+        models = fallbacks_for(model)
+
         # Check if advisory has commits
         commits = advisory.commits.all()
         if not commits.exists():
@@ -78,7 +92,30 @@ class AnalysisService:
             
             # Full prompt
             prompt = self._construct_prompt(advisory, advisory_text, patch_text)
-            
+            system_prompt = self._get_system_prompt()
+
+            # Content-addressed cache: reuse a stored result for identical inputs
+            # (same advisory/patch, provider, model, and prompt version) rather
+            # than re-spending tokens. Regenerate passes use_cache=False.
+            fingerprint = self._fingerprint(provider_key, model, system_prompt, prompt)
+            if use_cache and save_report:
+                existing = (Analysis.objects
+                            .filter(fingerprint=fingerprint)
+                            .order_by("-created_at")
+                            .first())
+                if existing is not None:
+                    logger.info("Cache hit for %s (%s); reusing analysis %s",
+                                advisory.github_id, model, existing.pk)
+                    existing.was_cached = True
+                    return existing
+
+            # Resolve the provider instance now (raises on a missing key).
+            try:
+                provider = self._get_provider(model)
+            except Exception as exc:
+                logger.error("Provider for %s unavailable: %s", model, exc)
+                return None
+
             # Check prompt size
             prompt_size = len(prompt)
             logger.info(f"Prompt size: {prompt_size} characters")
@@ -112,10 +149,10 @@ class AnalysisService:
                     logger.info(f"Sending request to OpenAI API using model {current_model}")
                     start_time = time.time()
                     
-                    response = self.openai_client.chat_completion(
+                    response = provider.chat_completion(
                         model=current_model,
                         messages=[
-                            {"role": "system", "content": self._get_system_prompt()},
+                            {"role": "system", "content": system_prompt},
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.3,
@@ -147,10 +184,10 @@ class AnalysisService:
                         prompt = self._construct_prompt(advisory, advisory_text, patch_text)
                         
                         try:
-                            response = self.openai_client.chat_completion(
+                            response = provider.chat_completion(
                                 model=current_model,
                                 messages=[
-                                    {"role": "system", "content": self._get_system_prompt()},
+                                    {"role": "system", "content": system_prompt},
                                     {"role": "user", "content": prompt}
                                 ],
                                 temperature=0.3,
@@ -176,7 +213,7 @@ class AnalysisService:
             tokens_used = response["tokens"]["total_tokens"]
             # Single source of pricing truth: the OpenAI client's table, fed the
             # full prompt/completion token split for an accurate estimate.
-            cost = self.openai_client.calculate_cost(used_model, response["tokens"])
+            cost = provider.calculate_cost(used_model, response["tokens"])
             
             # Note if we had to use a fallback model. Do NOT mutate
             # analysis_result here: it is the raw JSON the model returned and
@@ -212,6 +249,8 @@ class AnalysisService:
                     advisory=advisory,
                     user=self.user,
                     model_used=used_model,  # Use the model that actually succeeded
+                    provider=provider_key,
+                    fingerprint=fingerprint,
                     vuln_type=analysis_data.get('vuln_type', 'Unknown'),
                     severity=analysis_data.get('severity', ''),
                     cwe=analysis_data.get('cwe', ''),
@@ -235,6 +274,7 @@ class AnalysisService:
                     advisory.vulnerability_type = analysis_data.get('vuln_type')
                     advisory.save(update_fields=['vulnerability_type'])
 
+                analysis.was_cached = False
                 return analysis
 
             return analysis_data

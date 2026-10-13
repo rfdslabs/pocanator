@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### P1 — Multi-provider analysis + result caching
+
+#### Added
+- **Pluggable LLM providers** (`apps/analysis/providers/`): a thin `LLMProvider`
+  interface with a model catalog, serving **OpenAI and Anthropic Claude**. The
+  model is chosen per analysis from one grouped dropdown; the provider is
+  inferred from the model. Claude **Sonnet 5.5** is the default. Adding a third
+  provider is a new file, not a refactor.
+- **Per-user Anthropic key**: `UserProfile.anthropic_api_key` plus an
+  `ANTHROPIC_API_KEY` env/settings fallback. Keys resolve per the chosen model's
+  provider (user profile first, then env). Added the missing profile-edit page so
+  keys are configurable in the UI.
+- **Result caching**: each `Analysis` stores a content `fingerprint`
+  (prompt-version + provider + model + advisory/patch). Re-requesting an
+  unchanged analysis reuses the stored row instead of re-spending tokens and
+  shows a "reused — Regenerate to refresh" notice; **Regenerate** always
+  re-runs. Changing the advisory, model, provider, or prompt version
+  invalidates automatically.
+- Pinned `anthropic==0.69.0` (verified compatible with the existing
+  `httpx==0.27.2` pin).
+
+#### Changed
+- `AnalysisService` resolves a provider from the model instead of talking to
+  OpenAI directly; cost comes from the catalog pricing table (Claude pricing is
+  a marked maintainer TODO — unpriced models estimate `0.0`, never a fabricated
+  number). In-provider model fallback never crosses providers/keys.
+
 ### Sprint 1 — Trustworthy analysis + readable diffs
 
 #### Security
