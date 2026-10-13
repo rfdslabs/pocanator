@@ -25,6 +25,10 @@ class Analysis(models.Model):
     
     # Basic classification
     vuln_type = models.CharField(max_length=50, help_text="Type of vulnerability (e.g., RCE, XSS)")
+    severity = models.CharField(max_length=50, blank=True, null=True,
+                                help_text="Severity as assessed by the model")
+    cwe = models.CharField(max_length=50, blank=True, null=True,
+                           help_text="CWE identifier (e.g. CWE-89)")
     
     # Detailed analysis
     vuln_explanation = models.TextField(help_text="Explanation of the vulnerability")
@@ -34,8 +38,12 @@ class Analysis(models.Model):
     # Metrics
     patch_effectiveness = models.IntegerField(help_text="Effectiveness rating of patch (0-10)")
     poc_feasibility = models.IntegerField(help_text="Feasibility of creating a PoC (0-10)")
-    poc_complexity = models.CharField(max_length=50, choices=COMPLEXITY_CHOICES, 
+    poc_complexity = models.CharField(max_length=50, choices=COMPLEXITY_CHOICES,
                                      help_text="Complexity of creating a PoC")
+    confidence = models.IntegerField(default=0,
+                                     help_text="Model's confidence in this analysis (0-10)")
+    tokens_used = models.IntegerField(default=0, help_text="Total tokens used for this analysis")
+    estimated_cost = models.FloatField(default=0.0, help_text="Estimated API cost in USD")
     
     # Additional details
     required_skills = models.TextField(blank=True, null=True, 

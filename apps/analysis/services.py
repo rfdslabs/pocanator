@@ -119,7 +119,8 @@ class AnalysisService:
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.3,
-                        max_tokens=2500
+                        max_tokens=2500,
+                        response_format={"type": "json_object"}
                     )
                     
                     # If we get here, the request succeeded
@@ -153,7 +154,8 @@ class AnalysisService:
                                     {"role": "user", "content": prompt}
                                 ],
                                 temperature=0.3,
-                                max_tokens=2500
+                                max_tokens=2500,
+                                response_format={"type": "json_object"}
                             )
                             # If we get here, the retry succeeded
                             used_model = current_model
@@ -189,39 +191,43 @@ class AnalysisService:
                     cost=cost
                 )
             
-            # Parse the results
+            # Parse the structured JSON results
             analysis_data = self._parse_analysis_results(analysis_result)
-            
+            if analysis_data is None:
+                logger.error("Could not parse analysis JSON for %s", advisory.github_id)
+                return None
+
             # Create or update analysis object
             if save_report:
-                # Ensure the markdown report is properly formatted
-                # Remove any leading/trailing whitespace and normalize line endings
-                cleaned_report = analysis_result.strip().replace('\r\n', '\n')
-                
                 analysis = Analysis.objects.create(
                     advisory=advisory,
                     user=self.user,
                     model_used=used_model,  # Use the model that actually succeeded
-                    vuln_type=analysis_data.get('VULN_TYPE', 'Unknown'),
-                    vuln_explanation=analysis_data.get('VULN_EXPLANATION', ''),
-                    patch_analysis=analysis_data.get('PATCH_ANALYSIS', ''),
-                    impact_summary=analysis_data.get('IMPACT_SUMMARY', ''),
-                    patch_effectiveness=self._safe_int_conversion(analysis_data.get('PATCH_EFFECTIVENESS', 0)),
-                    poc_feasibility=self._safe_int_conversion(analysis_data.get('POC_FEASIBILITY', 0)),
-                    poc_complexity=analysis_data.get('POC_COMPLEXITY', 'Unknown'),
-                    required_skills=analysis_data.get('REQUIRED_SKILLS', ''),
-                    information_gaps=analysis_data.get('INFORMATION_GAPS', ''),
-                    key_indicators=analysis_data.get('KEY_INDICATORS', ''),
-                    markdown_report=cleaned_report
+                    vuln_type=analysis_data.get('vuln_type', 'Unknown'),
+                    severity=analysis_data.get('severity', ''),
+                    cwe=analysis_data.get('cwe', ''),
+                    vuln_explanation=analysis_data.get('vuln_explanation', ''),
+                    patch_analysis=analysis_data.get('patch_analysis', ''),
+                    impact_summary=analysis_data.get('impact_summary', ''),
+                    patch_effectiveness=self._safe_int_conversion(analysis_data.get('patch_effectiveness', 0)),
+                    poc_feasibility=self._safe_int_conversion(analysis_data.get('poc_feasibility', 0)),
+                    poc_complexity=analysis_data.get('poc_complexity', 'Unknown'),
+                    confidence=self._safe_int_conversion(analysis_data.get('confidence', 0)),
+                    required_skills=analysis_data.get('required_skills', ''),
+                    information_gaps=analysis_data.get('information_gaps', ''),
+                    key_indicators=analysis_data.get('key_indicators', ''),
+                    tokens_used=tokens_used,
+                    estimated_cost=cost,
+                    markdown_report=self._build_markdown(analysis_data),
                 )
-                
+
                 # Update the advisory with vulnerability type if not set
-                if not advisory.vulnerability_type and analysis_data.get('VULN_TYPE'):
-                    advisory.vulnerability_type = analysis_data.get('VULN_TYPE')
+                if not advisory.vulnerability_type and analysis_data.get('vuln_type'):
+                    advisory.vulnerability_type = analysis_data.get('vuln_type')
                     advisory.save(update_fields=['vulnerability_type'])
-                
+
                 return analysis
-            
+
             return analysis_data
             
         except Exception as e:
@@ -380,10 +386,64 @@ POC_COMPLEXITY: [Low/Medium/High]
     
     def _get_system_prompt(self):
         """Get the system prompt for GPT"""
-        return "You are an expert cybersecurity analyst specializing in vulnerability assessment and exploit development. You have extensive experience analyzing patches and determining exploit feasibility. You can identify key vulnerability indicators in code changes and assess how difficult it would be to create a PoC based solely on patches, advisories, and technical expertise."
-    
+        return (
+            "You are an expert cybersecurity analyst specializing in vulnerability "
+            "assessment and defensive patch analysis. Analyze the provided advisory "
+            "and patch and respond ONLY with a single JSON object (no markdown, no "
+            "code fences) with exactly these keys: "
+            "vuln_type (short string, e.g. 'SQL Injection'), "
+            "severity (one of Low/Medium/High/Critical), "
+            "cwe (e.g. 'CWE-89' or '' if unknown), "
+            "confidence (integer 0-10, your confidence in this analysis), "
+            "vuln_explanation (string), patch_analysis (string), "
+            "impact_summary (string), "
+            "patch_effectiveness (integer 0-10, how well the patch addresses the "
+            "vulnerability; 0 if no patch provided), "
+            "poc_feasibility (integer 0-10, how feasible an educational PoC is; "
+            "0 if not applicable), "
+            "poc_complexity (one of Low/Medium/High), "
+            "required_skills (string), information_gaps (string), "
+            "key_indicators (string)."
+        )
+
+    def _build_markdown(self, data):
+        """Render a human-readable markdown report from structured analysis data."""
+        def g(key):
+            return data.get(key, "") or ""
+        return (
+            f"## 1. Vulnerability Explanation\n\n{g('vuln_explanation')}\n\n"
+            f"## 2. Patch Analysis\n\n{g('patch_analysis')}\n\n"
+            f"## 3. Impact Summary\n\n{g('impact_summary')}\n\n"
+            f"## 4. PoC Feasibility\n\n{g('key_indicators')}\n\n"
+            f"- **Required skills:** {g('required_skills')}\n"
+            f"- **Information gaps:** {g('information_gaps')}\n\n"
+            f"## 5. Metrics\n\n"
+            f"| Metric | Value |\n| ------ | ----- |\n"
+            f"| Severity | {g('severity')} |\n"
+            f"| CWE | {g('cwe')} |\n"
+            f"| Patch effectiveness | {data.get('patch_effectiveness', 0)} |\n"
+            f"| PoC feasibility | {data.get('poc_feasibility', 0)} |\n"
+            f"| PoC complexity | {g('poc_complexity')} |\n"
+            f"| Confidence | {data.get('confidence', 0)} |\n"
+        )
+
     def _parse_analysis_results(self, analysis_result):
-        """Parse the analysis results from GPT"""
+        """Parse the analysis results (a JSON object string) from GPT.
+
+        Returns a dict on success, or None if the content is not valid JSON.
+        """
+        try:
+            data = json.loads(analysis_result)
+        except (ValueError, TypeError) as exc:
+            logger.error("Analysis response was not valid JSON: %s", exc)
+            return None
+        if not isinstance(data, dict):
+            logger.error("Analysis JSON was not an object: %r", type(data))
+            return None
+        return data
+
+    def _parse_analysis_results_legacy(self, analysis_result):
+        """Deprecated markdown-scraping parser, kept for reference."""
         metrics = {}
         
         # Extract metrics table
@@ -438,31 +498,27 @@ POC_COMPLEXITY: [Low/Medium/High]
         return metrics
     
     def _safe_int_conversion(self, value):
-        """Safely convert a value to an integer, handling special cases like 'N/A'"""
-        if value is None:
-            return 0
-            
-        # Try to convert to int
-        try:
-            return int(value)
-        except (ValueError, TypeError):
-            # Check common strings that indicate not applicable
-            if isinstance(value, str) and value.upper() in ['N/A', 'NA', 'NONE', 'UNKNOWN']:
-                return 0
-            
-            # For any other string, try to extract digits
-            if isinstance(value, str):
-                # Extract any numbers from the string
-                import re
-                digits = re.search(r'\d+', value)
-                if digits:
-                    try:
-                        return int(digits.group())
-                    except (ValueError, TypeError):
-                        pass
-            
-            # Default fallback
-            return 0
+        """Convert a value to a score integer clamped to the 0-10 range.
+
+        Handles 'N/A'-style strings and out-of-range numbers from the model.
+        """
+        result = 0
+        if value is not None:
+            try:
+                result = int(value)
+            except (ValueError, TypeError):
+                if isinstance(value, str) and value.upper() in ['N/A', 'NA', 'NONE', 'UNKNOWN']:
+                    result = 0
+                elif isinstance(value, str):
+                    import re
+                    digits = re.search(r'\d+', value)
+                    if digits:
+                        try:
+                            result = int(digits.group())
+                        except (ValueError, TypeError):
+                            result = 0
+        # Clamp scores to the documented 0-10 range.
+        return max(0, min(10, result))
     
     def _extract_wait_time(self, error_message):
         """
