@@ -61,13 +61,13 @@ class CreateAnalysisAPIView(APIView):
         try:
             advisory = get_object_or_404(Advisory, github_id=github_id)
             
-            model = request.data.get('model', 'gpt-4o')
-            
-            # Get API key from request or user profile
-            api_key = request.data.get('api_key')
-            if not api_key and hasattr(request.user, 'profile'):
-                api_key = request.user.profile.openai_api_key
-            
+            from .providers import DEFAULT_MODEL
+            from .views import resolve_api_key
+            model = request.data.get('model') or DEFAULT_MODEL
+
+            # Explicit key in the request wins; else resolve for the model's provider.
+            api_key = request.data.get('api_key') or resolve_api_key(request.user, model)
+
             service = AnalysisService(api_key=api_key, user=request.user)
             analysis = service.analyze_advisory(advisory, model=model)
             

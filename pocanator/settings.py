@@ -123,6 +123,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # API Keys and External Services
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', '')
 
 # OpenAI API configuration

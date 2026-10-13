@@ -20,8 +20,13 @@ class Analysis(models.Model):
     # Analysis metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    model_used = models.CharField(max_length=100, default="gpt-4o", 
+    model_used = models.CharField(max_length=100, default="gpt-4o",
                                   help_text="AI model used for analysis")
+    provider = models.CharField(max_length=30, blank=True, default="",
+                                help_text="LLM provider that produced this analysis")
+    fingerprint = models.CharField(max_length=64, blank=True, default="", db_index=True,
+                                   help_text="Content hash of (prompt version, provider, "
+                                             "model, advisory+patch) for result reuse")
     
     # Basic classification
     vuln_type = models.CharField(max_length=50, help_text="Type of vulnerability (e.g., RCE, XSS)")

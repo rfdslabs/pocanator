@@ -8,7 +8,26 @@ from django.http import HttpResponse
 from .models import Analysis
 from .forms import CreateAnalysisForm
 from .services import AnalysisService
+from .providers import resolve_provider_for_model, UnknownModel
 from apps.advisories.models import Advisory
+from django.conf import settings
+
+
+def resolve_api_key(user, model):
+    """Resolve the API key for a model's provider: user profile, then settings.
+
+    Returns "" when nothing is configured (the service then degrades gracefully).
+    """
+    try:
+        provider = resolve_provider_for_model(model)
+    except UnknownModel:
+        return None
+    profile = getattr(user, 'profile', None)
+    if provider == 'anthropic':
+        return (getattr(profile, 'anthropic_api_key', None)
+                or getattr(settings, 'ANTHROPIC_API_KEY', '') or None)
+    return (getattr(profile, 'openai_api_key', None)
+            or getattr(settings, 'OPENAI_API_KEY', '') or None)
 
 
 class AnalysisListView(ListView):
@@ -128,17 +147,22 @@ class CreateAnalysisView(LoginRequiredMixin, TemplateView):
         
         if form.is_valid():
             model = form.cleaned_data.get('model')
-            
-            # Get API key from user profile if available
-            api_key = None
-            if hasattr(request.user, 'profile'):
-                api_key = request.user.profile.openai_api_key
-            
+
+            # Resolve the API key for the chosen model's provider.
+            api_key = resolve_api_key(request.user, model)
+
             service = AnalysisService(api_key=api_key, user=request.user)
             analysis = service.analyze_advisory(advisory, model=model)
-            
+
             if analysis:
-                messages.success(request, f"Analysis created successfully for {github_id}")
+                if getattr(analysis, 'was_cached', False):
+                    messages.info(
+                        request,
+                        f"Existing analysis from {analysis.created_at:%Y-%m-%d %H:%M} "
+                        f"reused — Regenerate to refresh.",
+                    )
+                else:
+                    messages.success(request, f"Analysis created successfully for {github_id}")
                 return redirect('analysis-detail', pk=analysis.id)
             else:
                 messages.error(request, "Failed to create analysis. Please check logs for details.")
@@ -155,12 +179,12 @@ class RegenerateAnalysisView(LoginRequiredMixin, View):
         analysis = get_object_or_404(Analysis, pk=kwargs.get('pk'))
         advisory = analysis.advisory
 
-        api_key = None
-        if hasattr(request.user, 'profile'):
-            api_key = request.user.profile.openai_api_key
+        model = analysis.model_used
+        api_key = resolve_api_key(request.user, model)
 
         service = AnalysisService(api_key=api_key, user=request.user)
-        new_analysis = service.analyze_advisory(advisory, model=analysis.model_used)
+        # Regenerate always re-runs, bypassing the result cache.
+        new_analysis = service.analyze_advisory(advisory, model=model, use_cache=False)
 
         if new_analysis:
             # Regenerate replaces the previous analysis rather than piling up

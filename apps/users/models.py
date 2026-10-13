@@ -11,9 +11,11 @@ class UserProfile(models.Model):
                               help_text="API key for programmatic access")
     openai_api_key = models.CharField(max_length=255, blank=True, null=True,
                                     help_text="Personal OpenAI API key")
+    anthropic_api_key = models.CharField(max_length=255, blank=True, null=True,
+                                    help_text="Personal Anthropic (Claude) API key")
     github_token = models.CharField(max_length=255, blank=True, null=True,
                                   help_text="Personal GitHub token")
-    default_model = models.CharField(max_length=50, default="gpt-4o",
+    default_model = models.CharField(max_length=50, default="claude-sonnet-5-5",
                                     help_text="Default AI model to use")
     
     class Meta:

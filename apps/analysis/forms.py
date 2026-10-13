@@ -1,18 +1,15 @@
 from django import forms
 
+from .providers import DEFAULT_MODEL, grouped_choices
+
 
 class CreateAnalysisForm(forms.Form):
     """Form for creating a new analysis"""
-    
-    MODEL_CHOICES = [
-        ('gpt-4o', 'GPT-4o (Recommended)'),
-        ('gpt-4-turbo', 'GPT-4 Turbo'),
-        ('gpt-3.5-turbo', 'GPT-3.5 Turbo (Faster, less accurate)'),
-    ]
-    
+
     model = forms.ChoiceField(
-        choices=MODEL_CHOICES,
-        initial='gpt-4o',
+        choices=grouped_choices,
+        initial=DEFAULT_MODEL,
         widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text='Select the AI model to use for analysis.'
+        help_text='Select the AI model to use for analysis. The provider is '
+                  'chosen automatically from the model.',
     )
