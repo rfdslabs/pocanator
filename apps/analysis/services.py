@@ -176,11 +176,18 @@ class AnalysisService:
             tokens_used = response["tokens"]["total_tokens"]
             cost = self._calculate_cost(used_model, tokens_used)
             
-            # Note if we had to use a fallback model
+            # Note if we had to use a fallback model. Do NOT mutate
+            # analysis_result here: it is the raw JSON the model returned and
+            # appending prose would make json.loads fail. The note is added to
+            # the human-readable markdown report after parsing instead.
+            fallback_note = ""
             if used_model != model:
                 logger.info(f"Used fallback model {used_model} instead of requested {model}")
-                analysis_result += f"\n\n*Note: This analysis was generated using {used_model} instead of {model} due to API limitations.*"
-            
+                fallback_note = (
+                    f"\n\n*Note: This analysis was generated using {used_model} "
+                    f"instead of {model} due to API limitations.*"
+                )
+
             # Log API usage
             if self.user:
                 APIUsage.objects.create(
@@ -218,7 +225,7 @@ class AnalysisService:
                     key_indicators=analysis_data.get('key_indicators', ''),
                     tokens_used=tokens_used,
                     estimated_cost=cost,
-                    markdown_report=self._build_markdown(analysis_data),
+                    markdown_report=self._build_markdown(analysis_data) + fallback_note,
                 )
 
                 # Update the advisory with vulnerability type if not set

@@ -104,3 +104,65 @@ class RegenerateViewTests(TestCase):
         r = self.client.post(reverse("analysis-regenerate", args=[self.analysis.pk]))
         self.assertEqual(r.status_code, 302)
         self.assertIn("/accounts/login", r.url)
+
+
+class RequirementsFileTests(TestCase):
+    def test_each_requirement_line_parses(self):
+        import os
+        from django.conf import settings
+        from packaging.requirements import Requirement, InvalidRequirement
+        path = os.path.join(settings.BASE_DIR, "requirements.txt")
+        with open(path) as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                try:
+                    Requirement(line)
+                except InvalidRequirement as exc:
+                    self.fail(f"malformed requirement line {line!r}: {exc}")
+
+
+class FallbackModelTests(TestCase):
+    def setUp(self):
+        from apps.advisories.models import Advisory
+        self.adv = Advisory.objects.create(github_id="GHSA-fb", url="http://f", title="t",
+                                           description="d", severity="High")
+
+    def test_successful_fallback_is_not_discarded(self):
+        from apps.analysis.services import AnalysisService
+        svc = AnalysisService(api_key="k")
+        good = {"content": GOOD,
+                "tokens": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+                "model": "gpt-4-turbo", "elapsed_time": 0.1}
+        # First model (gpt-4o) errors; fallback (gpt-4-turbo) succeeds.
+        with mock.patch.object(svc.openai_client, "chat_completion",
+                               side_effect=[RuntimeError("boom"), good]):
+            a = svc.analyze_advisory(self.adv, model="gpt-4o")
+        self.assertIsNotNone(a)            # fallback result must be saved, not discarded
+        self.assertEqual(a.vuln_type, "SQLi")
+        self.assertEqual(a.model_used, "gpt-4-turbo")
+        self.assertIn("gpt-4-turbo", a.markdown_report)  # fallback noted on the report
+
+
+class ResponseFormatFallbackTests(TestCase):
+    def _fake_response(self):
+        m = mock.Mock()
+        m.choices = [mock.Mock(message=mock.Mock(content='{"ok": true}'))]
+        m.usage = mock.Mock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+        return m
+
+    def test_retries_without_response_format_when_unsupported(self):
+        client = OpenAIClient(api_key="k")
+        err = Exception("response_format of type 'json_object' is not supported with this model")
+        with mock.patch.object(client, "_create",
+                               side_effect=[err, self._fake_response()]) as create:
+            out = client.chat_completion(
+                model="gpt-4",
+                messages=[{"role": "user", "content": "return json"}],
+                response_format={"type": "json_object"},
+            )
+        self.assertEqual(out["content"], '{"ok": true}')
+        self.assertEqual(create.call_count, 2)
+        # The retry must not carry response_format.
+        self.assertNotIn("response_format", create.call_args_list[1].kwargs)

@@ -75,8 +75,19 @@ class OpenAIClient:
         try:
             response = self._create(**params)
         except Exception as exc:
-            logger.error("OpenAI API call failed: %s", exc)
-            raise
+            # Some models (e.g. base gpt-4) don't support JSON response_format.
+            # Fall back once to a plain call and rely on the prompt to ask for
+            # JSON, rather than failing the whole analysis.
+            if response_format is not None and "response_format" in str(exc).lower():
+                logger.warning(
+                    "Model %s rejected response_format; retrying without it: %s",
+                    model, exc,
+                )
+                params.pop("response_format", None)
+                response = self._create(**params)
+            else:
+                logger.error("OpenAI API call failed: %s", exc)
+                raise
 
         content = response.choices[0].message.content
         usage = response.usage
