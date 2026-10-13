@@ -106,6 +106,70 @@ class RegenerateViewTests(TestCase):
         self.assertIn("/accounts/login", r.url)
 
 
+class RegenerateReplaceTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from apps.advisories.models import Advisory
+        from apps.analysis.models import Analysis
+        self.user = User.objects.create_user("u2", password="p")
+        self.adv = Advisory.objects.create(github_id="GHSA-r", url="http://r", title="t",
+                                           description="d", severity="Low")
+        self.old = Analysis.objects.create(
+            advisory=self.adv, vuln_type="Old", vuln_explanation="e", patch_analysis="p",
+            impact_summary="i", patch_effectiveness=1, poc_feasibility=1, poc_complexity="Low")
+
+    def test_regenerate_replaces_old_row(self):
+        from django.urls import reverse
+        from apps.analysis.models import Analysis
+        self.client.force_login(self.user)
+
+        def fake_analyze(advisory, model=None):
+            return Analysis.objects.create(
+                advisory=advisory, vuln_type="New", vuln_explanation="e2",
+                patch_analysis="p", impact_summary="i", patch_effectiveness=2,
+                poc_feasibility=2, poc_complexity="Low")
+
+        with mock.patch("apps.analysis.views.AnalysisService") as Svc:
+            Svc.return_value.analyze_advisory.side_effect = fake_analyze
+            r = self.client.post(reverse("analysis-regenerate", args=[self.old.pk]))
+
+        self.assertEqual(r.status_code, 302)
+        # Regenerate replaces; it must not accumulate stale rows.
+        self.assertEqual(Analysis.objects.filter(advisory=self.adv).count(), 1)
+        self.assertFalse(Analysis.objects.filter(pk=self.old.pk).exists())
+        self.assertEqual(Analysis.objects.get(advisory=self.adv).vuln_type, "New")
+
+
+class CostTableTests(TestCase):
+    def setUp(self):
+        from apps.advisories.models import Advisory
+        self.adv = Advisory.objects.create(github_id="GHSA-c", url="http://c", title="t",
+                                           description="d", severity="High")
+
+    def test_estimated_cost_matches_single_client_pricing_table(self):
+        from apps.analysis.services import AnalysisService
+        from apps.analysis.openai_compat import OpenAIClient
+        svc = AnalysisService(api_key="k")
+        tokens = {"prompt_tokens": 1000, "completion_tokens": 500, "total_tokens": 1500}
+        resp = {"content": GOOD, "tokens": tokens, "model": "gpt-4o", "elapsed_time": 0.1}
+        with mock.patch.object(svc.openai_client, "chat_completion", return_value=resp):
+            a = svc.analyze_advisory(self.adv, model="gpt-4o")
+        expected = OpenAIClient(api_key="k").calculate_cost("gpt-4o", tokens)
+        self.assertGreater(a.estimated_cost, 0)
+        self.assertAlmostEqual(a.estimated_cost, expected, places=10)
+
+
+class MarkdownReportTests(TestCase):
+    def test_key_indicators_is_labeled_not_mislabeled_as_poc_body(self):
+        from apps.analysis.services import AnalysisService
+        svc = AnalysisService(api_key="k")
+        data = json.loads(GOOD)
+        data["key_indicators"] = "UNIQUE_INDICATOR_TOKEN"
+        md = svc._build_markdown(data)
+        self.assertIn("Key indicators", md)
+        self.assertIn("UNIQUE_INDICATOR_TOKEN", md)
+
+
 class RequirementsFileTests(TestCase):
     def test_each_requirement_line_parses(self):
         import os

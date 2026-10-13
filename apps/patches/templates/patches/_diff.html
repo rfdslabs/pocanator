@@ -16,6 +16,7 @@
           <tr class="{{ row.cls }}">
             <td class="diff-gutter diff-gutter-old">{{ row.old|default_if_none:"" }}</td>
             <td class="diff-gutter diff-gutter-new">{{ row.new|default_if_none:"" }}</td>
+            <td class="diff-marker" aria-hidden="true">{{ row.marker }}</td>
             <td class="diff-code"><pre>{{ row.html|safe }}</pre></td>
           </tr>
         {% endfor %}

@@ -1,26 +1,5 @@
 from django.test import TestCase
 
-from apps.patches.templatetags.patch_extras import format_diff, highlight_diff
-
-
-XSS = "+<script>alert(1)</script>"
-
-
-class DiffFilterEscapingTests(TestCase):
-    def test_format_diff_escapes_content(self):
-        out = format_diff(XSS)
-        self.assertNotIn("<script>", out)
-        self.assertIn("&lt;script&gt;", out)
-
-    def test_highlight_diff_escapes_content(self):
-        out = highlight_diff("-<img src=x onerror=alert(1)>")
-        self.assertNotIn("<img src=x onerror", out)
-        self.assertIn("&lt;img", out)
-
-    def test_format_diff_keeps_structural_classes(self):
-        out = format_diff("+added line")
-        self.assertIn("diff-add-line", out)
-
 
 class DiffRowsTests(TestCase):
     def setUp(self):
@@ -46,3 +25,19 @@ class DiffRowsTests(TestCase):
         self.assertEqual(rows[0]["old"], 1)
         self.assertEqual(rows[1]["cls"], "diff-add")
         self.assertEqual(rows[1]["new"], 1)
+
+    def test_rows_have_change_markers(self):
+        # Add/remove must be distinguishable by a +/- marker, not color alone.
+        from apps.patches.templatetags.patch_extras import build_diff_rows
+        rows = build_diff_rows(self.fc)
+        self.assertEqual(rows[0]["marker"], "-")
+        self.assertEqual(rows[1]["marker"], "+")
+
+
+class DeadFiltersRemovedTests(TestCase):
+    def test_legacy_diff_filters_are_gone(self):
+        # The unused diff_match_patch-based filters (latent XSS surface) were removed.
+        from apps.patches.templatetags import patch_extras
+        for name in ("format_diff", "highlight_diff", "diff_files", "diff_lines"):
+            self.assertFalse(hasattr(patch_extras, name),
+                             f"{name} should have been removed")

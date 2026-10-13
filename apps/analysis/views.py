@@ -163,6 +163,10 @@ class RegenerateAnalysisView(LoginRequiredMixin, View):
         new_analysis = service.analyze_advisory(advisory, model=analysis.model_used)
 
         if new_analysis:
+            # Regenerate replaces the previous analysis rather than piling up
+            # stale rows for the same advisory.
+            if new_analysis.pk != analysis.pk:
+                analysis.delete()
             messages.success(request, f"Analysis regenerated for {advisory.github_id}")
             return redirect('analysis-detail', pk=new_analysis.id)
 

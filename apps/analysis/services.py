@@ -174,7 +174,9 @@ class AnalysisService:
             # Extract information from the standardized response
             analysis_result = response["content"]
             tokens_used = response["tokens"]["total_tokens"]
-            cost = self._calculate_cost(used_model, tokens_used)
+            # Single source of pricing truth: the OpenAI client's table, fed the
+            # full prompt/completion token split for an accurate estimate.
+            cost = self.openai_client.calculate_cost(used_model, response["tokens"])
             
             # Note if we had to use a fallback model. Do NOT mutate
             # analysis_result here: it is the raw JSON the model returned and
@@ -421,9 +423,12 @@ POC_COMPLEXITY: [Low/Medium/High]
             f"## 1. Vulnerability Explanation\n\n{g('vuln_explanation')}\n\n"
             f"## 2. Patch Analysis\n\n{g('patch_analysis')}\n\n"
             f"## 3. Impact Summary\n\n{g('impact_summary')}\n\n"
-            f"## 4. PoC Feasibility\n\n{g('key_indicators')}\n\n"
+            f"## 4. PoC Feasibility\n\n"
+            f"- **Feasibility score:** {data.get('poc_feasibility', 0)}/10\n"
+            f"- **Complexity:** {g('poc_complexity')}\n"
             f"- **Required skills:** {g('required_skills')}\n"
-            f"- **Information gaps:** {g('information_gaps')}\n\n"
+            f"- **Information gaps:** {g('information_gaps')}\n"
+            f"- **Key indicators:** {g('key_indicators')}\n\n"
             f"## 5. Metrics\n\n"
             f"| Metric | Value |\n| ------ | ----- |\n"
             f"| Severity | {g('severity')} |\n"
@@ -546,20 +551,3 @@ POC_COMPLEXITY: [Low/Medium/High]
                 return None
         return None
     
-    def _calculate_cost(self, model, tokens):
-        """Calculate the cost of the API call"""
-        # Pricing per 1M tokens (as of early 2024)
-        model_pricing = {
-            "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
-            "gpt-4": {"input": 0.03, "output": 0.06},
-            "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-            "gpt-4o": {"input": 0.01, "output": 0.03}
-        }
-        
-        # Simplistic calculation (doesn't separate input/output tokens)
-        if model in model_pricing:
-            # Average of input and output costs since we don't know the split
-            avg_cost = (model_pricing[model]["input"] + model_pricing[model]["output"]) / 2
-            return (tokens / 1000000) * avg_cost
-        
-        return 0

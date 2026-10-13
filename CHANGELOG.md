@@ -22,8 +22,17 @@ All notable changes to this project will be documented in this file.
 
 #### Diff UX
 - New GitHub-style unified diff viewer: line-number gutter, Pygments syntax
-  highlighting, add/remove tinting, per-file accordion on the commit page, and a
-  binary-file state. Retires the ad-hoc raw/enhanced/word-diff rendering.
+  highlighting, add/remove tinting, a +/- change marker (so changes read
+  without relying on color), per-file accordion on the commit page, and a
+  binary-file state. Retires the ad-hoc raw/enhanced/word-diff rendering and
+  the unused `diff-match-patch`-based template filters (and the dependency).
+
+#### Fixes
+- Regenerating an analysis now replaces the previous one instead of leaving a
+  stale duplicate row for the advisory.
+- Cost estimation uses a single pricing table (the OpenAI client's), fed the
+  prompt/completion token split.
+- Corrected a mislabeled section in the generated markdown report.
 
 ### Changed
 - **Renamed the project to POCanator.** The Django settings package
