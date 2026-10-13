@@ -1,0 +1,28 @@
+{% load patch_extras %}
+<div class="diff-file">
+  <div class="diff-file-head">
+    <span class="diff-file-path">{{ file_change.file_path }}</span>
+    <span class="diff-file-stat">
+      <span class="text-success">+{{ file_change.lines_added }}</span>
+      <span class="text-danger">-{{ file_change.lines_removed }}</span>
+    </span>
+  </div>
+  {% if binary %}
+    <div class="diff-binary">Binary file not shown.</div>
+  {% elif rows %}
+    <table class="diff">
+      <tbody>
+        {% for row in rows %}
+          <tr class="{{ row.cls }}">
+            <td class="diff-gutter diff-gutter-old">{{ row.old|default_if_none:"" }}</td>
+            <td class="diff-gutter diff-gutter-new">{{ row.new|default_if_none:"" }}</td>
+            <td class="diff-marker" aria-hidden="true">{{ row.marker }}</td>
+            <td class="diff-code"><pre>{{ row.html|safe }}</pre></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="diff-empty">No line changes recorded.</div>
+  {% endif %}
+</div>

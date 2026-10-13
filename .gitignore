@@ -71,3 +71,6 @@ Thumbs.db
 venv*/
 .venv/
 ENV/
+
+# Superpowers execution workspace
+.superpowers/

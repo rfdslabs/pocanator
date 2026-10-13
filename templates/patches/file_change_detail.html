@@ -34,18 +34,15 @@
             <div class="col-md-3 text-muted">Repository:</div>
             <div class="col-md-9">{{ file_change.commit.repo_name }}</div>
         </div>
-        
         <div class="row mb-3">
             <div class="col-md-3 text-muted">Commit:</div>
             <div class="col-md-9"><code>{{ file_change.commit.short_hash }}</code></div>
         </div>
-        
         <div class="row mb-3">
             <div class="col-md-3 text-muted">Path:</div>
             <div class="col-md-9">{{ file_change.file_path }}</div>
         </div>
-        
-        <div class="row mb-3">
+        <div class="row">
             <div class="col-md-3 text-muted">Type:</div>
             <div class="col-md-9">
                 {% if file_change.is_binary %}
@@ -58,201 +55,6 @@
     </div>
 </div>
 
-<!-- Diff Tabs -->
-{% if not file_change.is_binary %}
-<div class="card">
-    <div class="card-header bg-light">
-        <ul class="nav nav-tabs card-header-tabs" id="diffTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="traditional-tab" data-bs-toggle="tab" data-bs-target="#traditional" type="button" role="tab" aria-controls="traditional" aria-selected="true">
-                    Traditional View
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="enhanced-tab" data-bs-toggle="tab" data-bs-target="#enhanced" type="button" role="tab" aria-controls="enhanced" aria-selected="false">
-                    Enhanced View
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="side-by-side-tab" data-bs-toggle="tab" data-bs-target="#side-by-side" type="button" role="tab" aria-controls="side-by-side" aria-selected="false">
-                    Side-by-Side
-                </button>
-            </li>
-        </ul>
-    </div>
-    <div class="card-body p-0">
-        <div class="tab-content" id="diffTabsContent">
-            <!-- Traditional View (Line by Line) -->
-            <div class="tab-pane fade show active" id="traditional" role="tabpanel" aria-labelledby="traditional-tab">
-                <table class="table diff-table mb-0">
-                    <tbody>
-                        {% for line_change in line_changes %}
-                        <tr class="{% if line_change.change_type == 'add' %}diff-add{% elif line_change.change_type == 'remove' %}diff-remove{% endif %}">
-                            <td class="diff-line-num">
-                                {% if line_change.old_line_num %}{{ line_change.old_line_num }}{% endif %}
-                            </td>
-                            <td class="diff-line-num">
-                                {% if line_change.new_line_num %}{{ line_change.new_line_num }}{% endif %}
-                            </td>
-                            <td class="diff-code">
-                                {% if line_change.change_type == 'add' %}+{% elif line_change.change_type == 'remove' %}-{% else %} {% endif %}{{ line_change.content }}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center p-3">
-                                <div class="alert alert-info mb-0">
-                                    <i class="fas fa-info-circle"></i> No line changes found for this file.
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Enhanced View (diff-match-patch) -->
-            <div class="tab-pane fade" id="enhanced" role="tabpanel" aria-labelledby="enhanced-tab">
-                <div class="p-3">
-                    <!-- Construct old content string -->
-                    {% with old_content='' new_content='' %}
-                        {% for line_change in line_changes %}
-                            {% if line_change.change_type == 'remove' or line_change.change_type == 'context' %}
-                                {% with old_content=old_content|add:line_change.content|add:'\n' %}{% endwith %}
-                            {% endif %}
-                            {% if line_change.change_type == 'add' or line_change.change_type == 'context' %}
-                                {% with new_content=new_content|add:line_change.content|add:'\n' %}{% endwith %}
-                            {% endif %}
-                        {% endfor %}
-                        <div class="dmp-diff-container">
-                            <!-- Show the enhanced diff using the diff_match_patch library -->
-                            <div class="mb-3">
-                                <div class="bg-light p-2 mb-2 rounded">
-                                    <strong>Word-Level Diff</strong> - Changes are highlighted at the word level
-                                </div>
-                                <div class="dmp-word-diff">
-                                    {{ file_change.get_old_content|diff_files:file_change.get_new_content }}
-                                </div>
-                            </div>
-                        </div>
-                    {% endwith %}
-                </div>
-            </div>
-            
-            <!-- Side by Side View -->
-            <div class="tab-pane fade" id="side-by-side" role="tabpanel" aria-labelledby="side-by-side-tab">
-                <div class="row mx-0">
-                    <div class="col-6 p-0 border-end">
-                        <div class="p-2 bg-light border-bottom">Old Version</div>
-                        <pre class="m-0 p-3 diff-pre">{% for line_change in line_changes %}{% if line_change.change_type == 'remove' or line_change.change_type == 'context' %}{{ line_change.content }}
-{% endif %}{% endfor %}</pre>
-                    </div>
-                    <div class="col-6 p-0">
-                        <div class="p-2 bg-light border-bottom">New Version</div>
-                        <pre class="m-0 p-3 diff-pre">{% for line_change in line_changes %}{% if line_change.change_type == 'add' or line_change.change_type == 'context' %}{{ line_change.content }}
-{% endif %}{% endfor %}</pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% else %}
-<div class="card">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">
-            <i class="fas fa-exclamation-triangle"></i> Binary File
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="alert alert-warning">
-            <i class="fas fa-info-circle"></i> Binary files cannot display line-by-line differences.
-        </div>
-    </div>
-</div>
-{% endif %}
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    .diff-table {
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.85rem;
-        white-space: pre;
-        width: 100%;
-    }
-    
-    .diff-line-num {
-        color: #8a8a8a;
-        text-align: right;
-        width: 40px;
-        padding: 0 10px !important;
-        user-select: none;
-        border-right: 1px solid #ddd;
-    }
-    
-    .diff-code {
-        white-space: pre-wrap;
-        word-break: break-all;
-        padding-left: 15px !important;
-    }
-    
-    .diff-add {
-        background-color: #e6ffed;
-    }
-    
-    .diff-add .diff-code {
-        color: #22863a;
-    }
-    
-    .diff-remove {
-        background-color: #ffeef0;
-    }
-    
-    .diff-remove .diff-code {
-        color: #cb2431;
-    }
-    
-    /* diff-match-patch Styling */
-    .dmp-diff-container {
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.85rem;
-        line-height: 1.5;
-    }
-    
-    .dmp-word-diff {
-        background-color: #fff;
-        padding: 1rem;
-        border: 1px solid #e1e4e8;
-        border-radius: 0.25rem;
-        word-wrap: break-word;
-    }
-    
-    .dmp-word-diff del {
-        background-color: #ffeef0;
-        color: #cb2431;
-        text-decoration: none;
-        padding: 0.1rem 0.2rem;
-        border-radius: 0.125rem;
-    }
-    
-    .dmp-word-diff ins {
-        background-color: #e6ffed;
-        color: #22863a;
-        text-decoration: none;
-        padding: 0.1rem 0.2rem;
-        border-radius: 0.125rem;
-    }
-    
-    /* Side-by-side view */
-    .diff-pre {
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.85rem;
-        line-height: 1.5;
-        overflow-x: auto;
-        background-color: #fafafa;
-        height: 400px;
-        overflow-y: auto;
-    }
-</style>
+<!-- Unified diff -->
+{% render_file_change file_change %}
 {% endblock %}
