@@ -10,14 +10,17 @@ published Anthropic rates. They are intentionally ``None`` until verified.
 """
 
 # Ordered so the first entry is the global default (Claude Sonnet 5.5).
+# Pricing reflects published rates at time of writing; verify before relying on
+# the cost estimate. Unknown pricing (None) estimates 0.0 — never a fabricated number.
 MODELS = [
     # id                 label                              provider      pricing (in, out) per 1M
     ("claude-sonnet-5-5", "Claude Sonnet 5.5 (Recommended)", "anthropic",  None),
     ("claude-opus-5-5",   "Claude Opus 5.5 (Most capable)",  "anthropic",  None),
     ("claude-haiku-5-5",  "Claude Haiku 5.5 (Fastest)",      "anthropic",  None),
+    ("gpt-4.1",           "GPT-4.1",                          "openai",     (0.002, 0.008)),
+    ("gpt-4.1-mini",      "GPT-4.1 mini",                     "openai",     (0.0004, 0.0016)),
     ("gpt-4o",            "GPT-4o",                           "openai",     (0.0025, 0.01)),
-    ("gpt-4-turbo",       "GPT-4 Turbo",                      "openai",     (0.01, 0.03)),
-    ("gpt-3.5-turbo",     "GPT-3.5 Turbo (Faster)",           "openai",     (0.0005, 0.0015)),
+    ("gpt-4o-mini",       "GPT-4o mini (Faster)",             "openai",     (0.00015, 0.0006)),
 ]
 
 DEFAULT_MODEL = MODELS[0][0]
@@ -30,9 +33,10 @@ FALLBACKS = {
     "claude-sonnet-5-5": ["claude-sonnet-5-5", "claude-haiku-5-5"],
     "claude-opus-5-5": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
     "claude-haiku-5-5": ["claude-haiku-5-5"],
-    "gpt-4o": ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
-    "gpt-4-turbo": ["gpt-4-turbo", "gpt-3.5-turbo"],
-    "gpt-3.5-turbo": ["gpt-3.5-turbo"],
+    "gpt-4.1": ["gpt-4.1", "gpt-4.1-mini", "gpt-4o"],
+    "gpt-4.1-mini": ["gpt-4.1-mini", "gpt-4o-mini"],
+    "gpt-4o": ["gpt-4o", "gpt-4o-mini"],
+    "gpt-4o-mini": ["gpt-4o-mini"],
 }
 
 

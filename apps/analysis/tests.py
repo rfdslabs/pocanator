@@ -216,15 +216,15 @@ class FallbackModelTests(TestCase):
     def test_successful_fallback_is_not_discarded(self):
         from apps.analysis.services import AnalysisService
         svc = AnalysisService(api_key="k")
-        good = _resp(GOOD, model="gpt-4-turbo")
-        # gpt-4o errors; the in-provider fallback gpt-4-turbo succeeds.
+        good = _resp(GOOD, model="gpt-4o-mini")
+        # gpt-4o errors; the in-provider fallback gpt-4o-mini succeeds.
         fake = FakeProvider([RuntimeError("boom"), good])
         with mock.patch.object(svc, "_get_provider", return_value=fake):
             a = svc.analyze_advisory(self.adv, model="gpt-4o")
         self.assertIsNotNone(a)
         self.assertEqual(a.vuln_type, "SQLi")
-        self.assertEqual(a.model_used, "gpt-4-turbo")
-        self.assertIn("gpt-4-turbo", a.markdown_report)
+        self.assertEqual(a.model_used, "gpt-4o-mini")
+        self.assertIn("gpt-4o-mini", a.markdown_report)
         self.assertEqual(a.provider, "openai")
 
 
@@ -270,10 +270,10 @@ class CacheReuseTests(TestCase):
     def test_different_model_is_not_a_false_hit(self):
         from apps.analysis.services import AnalysisService
         svc = AnalysisService(api_key="k")
-        fake = FakeProvider([_resp(GOOD), _resp(GOOD, model="gpt-4-turbo")])
+        fake = FakeProvider([_resp(GOOD), _resp(GOOD, model="gpt-4o-mini")])
         with mock.patch.object(svc, "_get_provider", return_value=fake):
             a1 = svc.analyze_advisory(self.adv, model="gpt-4o")
-            a2 = svc.analyze_advisory(self.adv, model="gpt-4-turbo")
+            a2 = svc.analyze_advisory(self.adv, model="gpt-4o-mini")
         self.assertNotEqual(a1.fingerprint, a2.fingerprint)
         self.assertEqual(len(fake.calls), 2)
 
