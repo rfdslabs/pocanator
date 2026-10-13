@@ -85,3 +85,22 @@ class StructuredAnalysisTests(TestCase):
         svc = self._svc()
         with mock.patch.object(svc.openai_client, "chat_completion", return_value=self._resp("not json")):
             self.assertIsNone(svc.analyze_advisory(self.adv, model="gpt-4o"))
+
+
+class RegenerateViewTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from apps.advisories.models import Advisory
+        from apps.analysis.models import Analysis
+        self.user = User.objects.create_user("u", password="p")
+        self.adv = Advisory.objects.create(github_id="GHSA-z", url="http://z", title="t",
+                                            description="d", severity="Low")
+        self.analysis = Analysis.objects.create(
+            advisory=self.adv, vuln_type="X", vuln_explanation="e", patch_analysis="p",
+            impact_summary="i", patch_effectiveness=1, poc_feasibility=1, poc_complexity="Low")
+
+    def test_regenerate_requires_login(self):
+        from django.urls import reverse
+        r = self.client.post(reverse("analysis-regenerate", args=[self.analysis.pk]))
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/accounts/login", r.url)

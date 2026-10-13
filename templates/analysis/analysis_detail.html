@@ -19,6 +19,16 @@
         <a href="{% url 'advisory-detail' analysis.advisory.github_id %}" class="btn btn-secondary">
             <i class="fas fa-shield-alt"></i> Advisory
         </a>
+        {% if user.is_authenticated %}
+        <form method="post" action="{% url 'analysis-regenerate' analysis.id %}" class="d-inline"
+              onsubmit="this.querySelector('button').disabled=true;this.querySelector('.spinner-border').classList.remove('d-none');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-primary">
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                <i class="fas fa-sync-alt"></i> Regenerate
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 
@@ -118,6 +128,32 @@
                                 <span class="text-muted">Not evaluated</span>
                                 {% endif %}
                             </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">CWE</th>
+                            <td>
+                                {% if analysis.cwe %}
+                                <span class="badge bg-dark">{{ analysis.cwe }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Confidence</th>
+                            <td>{{ analysis.confidence }}/10</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Model</th>
+                            <td><code>{{ analysis.model_used }}</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Tokens</th>
+                            <td>{{ analysis.tokens_used }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Est. cost</th>
+                            <td>${{ analysis.estimated_cost|floatformat:4 }}</td>
                         </tr>
                     </tbody>
                 </table>

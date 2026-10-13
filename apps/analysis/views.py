@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, DetailView, CreateView, TemplateView
+from django.views.generic import ListView, DetailView, CreateView, TemplateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse, reverse_lazy
 from django.contrib import messages
@@ -147,3 +147,27 @@ class CreateAnalysisView(LoginRequiredMixin, TemplateView):
         context = self.get_context_data(**kwargs)
         context['form'] = form
         return render(request, self.template_name, context)
+
+class RegenerateAnalysisView(LoginRequiredMixin, View):
+    """Re-run the analysis for an existing analysis's advisory."""
+
+    def post(self, request, *args, **kwargs):
+        analysis = get_object_or_404(Analysis, pk=kwargs.get('pk'))
+        advisory = analysis.advisory
+
+        api_key = None
+        if hasattr(request.user, 'profile'):
+            api_key = request.user.profile.openai_api_key
+
+        service = AnalysisService(api_key=api_key, user=request.user)
+        new_analysis = service.analyze_advisory(advisory, model=analysis.model_used)
+
+        if new_analysis:
+            messages.success(request, f"Analysis regenerated for {advisory.github_id}")
+            return redirect('analysis-detail', pk=new_analysis.id)
+
+        messages.error(
+            request,
+            "Failed to regenerate analysis. Check that an OpenAI API key is configured.",
+        )
+        return redirect('analysis-detail', pk=analysis.id)
